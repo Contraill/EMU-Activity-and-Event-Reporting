@@ -1,0 +1,62 @@
+[
+    {
+        "id": 1,
+        "title": "Marine Life & Sustainability Panel",
+        "date": "2025-12-15",
+        "time": "14:30",
+        "description": "A comprehensive seminar regarding the protection of sea turtles and marine ecosystems in Cyprus.",
+        "sdg": "SDG 14: Life Below Water",
+        "the_cat": "Research",
+        "qs_cat": "Research Quality",
+        "organizer": "Biological Sciences Dept.",
+        "image": "https://via.placeholder.com/600x400?text=Marine+Protection"
+    },
+    {
+        "id": 2,
+        "title": "Renewable Energy Systems Workshop",
+        "date": "2025-12-20",
+        "time": "09:00",
+        "description": "Hands-on workshop focusing on solar panel efficiency and green energy transition strategies.",
+        "sdg": "SDG 7: Affordable and Clean Energy",
+        "the_cat": "Teaching",
+        "qs_cat": "Teaching & Learning",
+        "organizer": "Faculty of Engineering",
+        "image": "https://via.placeholder.com/600x400?text=Solar+Energy"
+    },
+    {
+        "id": 3,
+        "title": "Campus Mental Health Awareness",
+        "date": "2025-12-22",
+        "time": "11:00",
+        "description": "Open session for students: Stress management techniques and psychological support resources.",
+        "sdg": "SDG 3: Good Health and Well-being",
+        "the_cat": "Teaching",
+        "qs_cat": "Inclusiveness",
+        "organizer": "PDRAM",
+        "image": "https://via.placeholder.com/600x400?text=Mental+Health"
+    },
+    {
+        "id": 4,
+        "title": "International Research Collaboration",
+        "date": "2026-01-05",
+        "time": "10:00",
+        "description": "Meeting with foreign partners to discuss joint research projects and funding.",
+        "sdg": "SDG 17: Partnerships for the Goals",
+        "the_cat": "International Outlook",
+        "qs_cat": "Internationalization",
+        "organizer": "Rectorate Office",
+        "image": "https://via.placeholder.com/600x400?text=Global+Partners"
+    },
+    {
+        "id": 5,
+        "title": "Zero Hunger Charity Run",
+        "date": "2026-01-10",
+        "time": "08:00",
+        "description": "Community run event to raise funds for local food banks.",
+        "sdg": "SDG 2: Zero Hunger",
+        "the_cat": "Industry Income / Collaboration",
+        "qs_cat": "Social Responsibility",
+        "organizer": "Sports Affairs",
+        "image": "https://via.placeholder.com/600x400?text=Charity+Run"
+    }
+]

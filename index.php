@@ -1,63 +1,33 @@
 <?php
 /**
  * EMU Activity & Event Reporting Portal
- * Frontend Prototype
- * Features: Search Functionality, JS Filters, PDF Mockup, Dark Mode
+ * Main Entry Point (Index)
+ * * This file handles the display of the dashboard, including filtering
+ * and search functionality for events loaded from a JSON source.
+ * * @version 1.0.0
  */
 
-// --- MOCK DATA ---
-$events = [
-    [
-        'id' => 1,
-        'title' => 'Marine Life & Sustainability Panel',
-        'date' => '2025-12-15',
-        'time' => '14:30',
-        'description' => 'A comprehensive seminar regarding the protection of sea turtles and marine ecosystems in Cyprus.',
-        'sdg' => 'SDG 14: Life Below Water',
-        'the_cat' => 'Research',
-        'qs_cat' => 'Research Quality',
-        'organizer' => 'Biological Sciences Dept.',
-        'image' => 'https://via.placeholder.com/600x400?text=Marine+Protection' 
-    ],
-    [
-        'id' => 2,
-        'title' => 'Renewable Energy Systems Workshop',
-        'date' => '2025-12-20',
-        'time' => '09:00',
-        'description' => 'Hands-on workshop focusing on solar panel efficiency and green energy transition strategies.',
-        'sdg' => 'SDG 7: Affordable and Clean Energy',
-        'the_cat' => 'Teaching',
-        'qs_cat' => 'Teaching & Learning',
-        'organizer' => 'Faculty of Engineering',
-        'image' => 'https://via.placeholder.com/600x400?text=Solar+Energy'
-    ],
-    [
-        'id' => 3,
-        'title' => 'Campus Mental Health Awareness',
-        'date' => '2025-12-22',
-        'time' => '11:00',
-        'description' => 'Open session for students: Stress management techniques and psychological support resources.',
-        'sdg' => 'SDG 3: Good Health and Well-being',
-        'the_cat' => 'Teaching',
-        'qs_cat' => 'Inclusiveness',
-        'organizer' => 'PDRAM',
-        'image' => 'https://via.placeholder.com/600x400?text=Mental+Health'
-    ],
-    [
-        'id' => 4,
-        'title' => 'International Research Collaboration',
-        'date' => '2026-01-05',
-        'time' => '10:00',
-        'description' => 'Meeting with foreign partners to discuss joint research projects and funding.',
-        'sdg' => 'SDG 17: Partnerships for the Goals',
-        'the_cat' => 'International Outlook',
-        'qs_cat' => 'Internationalization',
-        'organizer' => 'Rectorate Office',
-        'image' => 'https://via.placeholder.com/600x400?text=Global+Partners'
-    ]
-];
+// --- CONFIGURATION & DATA LOADING ---
+$json_file = 'events.json';
+$events = [];
 
-// Helper arrays
+// Load event data from JSON file
+if (file_exists($json_file)) {
+    $json_content = file_get_contents($json_file);
+    $events = json_decode($json_content, true);
+    
+    // Validate JSON structure
+    if ($events === null) {
+        $events = []; // Fallback to empty array on JSON error
+        error_log("Error: Invalid JSON format in events.json");
+    }
+} else {
+    // File missing
+    $events = [];
+    error_log("Error: events.json not found.");
+}
+
+// Filter Definitions
 $sdgs = [
     "SDG 1: No Poverty", "SDG 2: Zero Hunger", "SDG 3: Good Health and Well-being",
     "SDG 4: Quality Education", "SDG 5: Gender Equality", "SDG 6: Clean Water and Sanitation",
@@ -91,7 +61,7 @@ $qs_criteria = [
     
     <style>
         :root {
-            /* Light Mode */
+            /* Light Theme Variables */
             --emu-dark-blue: #002147; 
             --emu-light-blue: #005A9C;
             --emu-orange: #F58220;
@@ -102,7 +72,7 @@ $qs_criteria = [
             --border-color: #dee2e6;
         }
 
-        /* Dark Mode */
+        /* Dark Theme Variables */
         [data-theme="dark"] {
             --emu-dark-blue: #00152e;
             --emu-light-blue: #3a86cc;
@@ -113,6 +83,12 @@ $qs_criteria = [
             --border-color: #333333;
         }
         
+        /* Smooth Scrolling Adjustment for Sticky Navbar */
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 100px; /* Offsets scroll for fixed header */
+        }
+
         body {
             background-color: var(--bg-body);
             font-family: 'Open Sans', sans-serif;
@@ -122,7 +98,7 @@ $qs_criteria = [
 
         h1, h2, h3, h4, h5 { font-family: 'Merriweather', serif; }
 
-        /* Navbar */
+        /* Navigation Bar */
         .navbar {
             background-color: #002147; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
@@ -151,7 +127,7 @@ $qs_criteria = [
             cursor: pointer;
         }
 
-        /* Hero */
+        /* Hero Section */
         .hero-section {
             background: linear-gradient(rgba(0, 33, 71, 0.9), rgba(0, 33, 71, 0.8)), url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Eastern_Mediterranean_University_Rectorate_Building.jpg/1200px-Eastern_Mediterranean_University_Rectorate_Building.jpg');
             background-position: center;
@@ -161,7 +137,7 @@ $qs_criteria = [
             border-bottom: 5px solid var(--emu-orange);
         }
 
-        /* UI */
+        /* Widget Components */
         .calendar-widget {
             background: var(--bg-card);
             border-top: 4px solid var(--emu-dark-blue);
@@ -195,7 +171,7 @@ $qs_criteria = [
         .sdg-tag { background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; display: inline-block; margin-bottom: 5px;}
         .criteria-tag { background-color: var(--emu-light-blue); color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; display: inline-block; margin-bottom: 5px;}
 
-        /* Filters */
+        /* Filter Controls */
         .filter-box-container {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -212,14 +188,13 @@ $qs_criteria = [
         .scrollable-checkboxes::-webkit-scrollbar { width: 6px; }
         .scrollable-checkboxes::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
 
-        /* Helpers */
+        /* Typography Utilities */
         .text-adaptive { color: var(--text-main) !important; }
         .text-muted-adaptive { color: var(--text-muted) !important; }
         
         [data-theme="dark"] .text-dark { color: #fff !important; }
         [data-theme="dark"] .bg-white { background-color: #1e1e1e !important; }
         [data-theme="dark"] .border-bottom { border-color: #444 !important; }
-        /* Dark mode inputs */
         [data-theme="dark"] .form-control { background-color: #333; border-color: #444; color: #fff; }
 
         footer {
@@ -245,8 +220,9 @@ $qs_criteria = [
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="#calendar"><i class="far fa-calendar-alt me-1"></i> Calendar</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#events"><i class="fas fa-list me-1"></i> Events</a></li>
+                    <li class="nav-item"><a class="nav-link" href="calendar.php"><i class="far fa-calendar-alt me-1"></i> Calendar</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#all-events-section"><i class="fas fa-list me-1"></i> Events</a></li>
+                    
                     <li class="nav-item">
                         <a href="#" onclick="alert('System Message: Admin Login Panel is under construction.')" class="btn btn-login btn-sm px-4 rounded-pill">
                             <i class="fas fa-lock me-2"></i>Staff Login
@@ -276,26 +252,6 @@ $qs_criteria = [
             
             <div class="col-lg-3 mb-4">
                 
-                <div id="calendar" class="calendar-widget p-3 mb-4 rounded-1">
-                    <h5 class="mb-3 text-adaptive border-bottom pb-2">Upcoming Calendar</h5>
-                    <?php foreach(array_slice($events, 0, 3) as $ev): ?>
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="date-box flex-shrink-0">
-                            <span class="month"><?php echo date('M', strtotime($ev['date'])); ?></span>
-                            <span class="day"><?php echo date('d', strtotime($ev['date'])); ?></span>
-                        </div>
-                        <div class="ms-2">
-                            <small class="d-block fw-bold text-adaptive text-truncate" style="max-width: 150px;">
-                                <?php echo $ev['title']; ?>
-                            </small>
-                            <small class="text-muted-adaptive" style="font-size: 0.75rem;">
-                                <i class="far fa-clock"></i> <?php echo $ev['time']; ?>
-                            </small>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-
                 <div class="filter-box-container p-3 shadow-sm rounded-1">
                     <h5 class="mb-3 text-adaptive"><i class="fas fa-filter me-2"></i>Filters</h5>
                     
@@ -360,55 +316,63 @@ $qs_criteria = [
                 </div>
             </div>
 
-            <div class="col-lg-9" id="events">
-                <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="col-lg-9">
+                <div class="d-flex justify-content-between align-items-center mb-4" id="all-events-section">
                     <h3 class="fw-bold m-0 text-adaptive">All Events</h3>
                 </div>
 
                 <div class="row" id="events-container">
-                    <?php foreach($events as $event): ?>
-                    <div class="col-md-6 mb-4 event-item" 
-                         data-sdg="<?php echo $event['sdg']; ?>" 
-                         data-the="<?php echo $event['the_cat'] ?? ''; ?>" 
-                         data-qs="<?php echo $event['qs_cat'] ?? ''; ?>">
-                         
-                        <div class="card event-card h-100">
-                            <div style="height: 160px; overflow: hidden; background: #eee;">
-                                <img src="<?php echo $event['image']; ?>" class="w-100" style="object-fit: cover; height: 100%;" alt="Event Image">
+                    <?php if(empty($events)): ?>
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                No events found or events.json is missing.
                             </div>
-                            
-                            <div class="card-body d-flex flex-column">
-                                <div class="mb-2">
-                                    <span class="sdg-tag"><?php echo $event['sdg']; ?></span>
-                                    <?php if(isset($event['the_cat'])): ?>
-                                        <span class="criteria-tag"><i class="fas fa-university me-1"></i><?php echo $event['the_cat']; ?></span>
-                                    <?php endif; ?>
-                                    <?php if(isset($event['qs_cat'])): ?>
-                                        <span class="criteria-tag"><i class="fas fa-star me-1"></i><?php echo $event['qs_cat']; ?></span>
-                                    <?php endif; ?>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach($events as $event): ?>
+                        <div class="col-md-6 mb-4 event-item" 
+                             data-sdg="<?php echo $event['sdg']; ?>" 
+                             data-the="<?php echo $event['the_cat'] ?? ''; ?>" 
+                             data-qs="<?php echo $event['qs_cat'] ?? ''; ?>">
+                             
+                            <div class="card event-card h-100">
+                                <div style="height: 160px; overflow: hidden; background: #eee;">
+                                    <img src="<?php echo $event['image']; ?>" class="w-100" style="object-fit: cover; height: 100%;" alt="Event Image">
                                 </div>
-
-                                <h5 class="card-title fw-bold mb-2 text-adaptive">
-                                    <?php echo $event['title']; ?>
-                                </h5>
-                                <p class="card-text text-muted-adaptive small mb-3">
-                                    <?php echo $event['description']; ?>
-                                </p>
                                 
-                                <div class="mt-auto">
-                                    <div class="d-flex justify-content-between text-muted-adaptive small border-top pt-3 mb-3" style="border-color: var(--border-color) !important;">
-                                        <span><i class="far fa-building me-1"></i> <?php echo $event['organizer']; ?></span>
-                                        <span><i class="far fa-calendar me-1"></i> <?php echo date('d M Y', strtotime($event['date'])); ?></span>
+                                <div class="card-body d-flex flex-column">
+                                    <div class="mb-2">
+                                        <span class="sdg-tag"><?php echo $event['sdg']; ?></span>
+                                        <?php if(isset($event['the_cat'])): ?>
+                                            <span class="criteria-tag"><i class="fas fa-university me-1"></i><?php echo $event['the_cat']; ?></span>
+                                        <?php endif; ?>
+                                        <?php if(isset($event['qs_cat'])): ?>
+                                            <span class="criteria-tag"><i class="fas fa-star me-1"></i><?php echo $event['qs_cat']; ?></span>
+                                        <?php endif; ?>
                                     </div>
+
+                                    <h5 class="card-title fw-bold mb-2 text-adaptive">
+                                        <?php echo $event['title']; ?>
+                                    </h5>
+                                    <p class="card-text text-muted-adaptive small mb-3">
+                                        <?php echo $event['description']; ?>
+                                    </p>
                                     
-                                    <a href="javascript:void(0);" onclick="downloadReport(this)" class="btn btn-outline-danger btn-sm w-100">
-                                        <i class="fas fa-file-pdf me-2"></i>Download Event Report
-                                    </a>
+                                    <div class="mt-auto">
+                                        <div class="d-flex justify-content-between text-muted-adaptive small border-top pt-3 mb-3" style="border-color: var(--border-color) !important;">
+                                            <span><i class="far fa-building me-1"></i> <?php echo $event['organizer']; ?></span>
+                                            <span><i class="far fa-calendar me-1"></i> <?php echo date('d M Y', strtotime($event['date'])); ?></span>
+                                        </div>
+                                        
+                                        <a href="javascript:void(0);" onclick="downloadReport(this)" class="btn btn-outline-danger btn-sm w-100">
+                                            <i class="fas fa-file-pdf me-2"></i>Download Event Report
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
                 
                 <div id="no-results" class="alert alert-warning text-center" style="display:none;">
@@ -428,7 +392,7 @@ $qs_criteria = [
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // --- 1. DARK MODE LOGIC ---
+        // --- Dark Mode Logic ---
         const themeToggleBtn = document.getElementById('theme-toggle');
         const icon = themeToggleBtn.querySelector('i');
         
@@ -456,14 +420,12 @@ $qs_criteria = [
             }
         });
 
-        // --- 2. FILTER & SEARCH LOGIC (COMBINED) ---
-        // Trigger filter on Button Click OR Enter Key in search box
+        // --- Filter & Search Logic ---
         const applyBtn = document.getElementById('apply-filters-btn');
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
 
         function executeFilter() {
-            // Get inputs
             const searchQuery = searchInput.value.toLowerCase();
             const selectedSDGs = Array.from(document.querySelectorAll('input[name="sdg"]:checked')).map(cb => cb.value);
             const selectedTHE = Array.from(document.querySelectorAll('input[name="the"]:checked')).map(cb => cb.value);
@@ -473,23 +435,17 @@ $qs_criteria = [
             let visibleCount = 0;
 
             events.forEach(event => {
-                // Get Event Data
                 const eventSDG = event.getAttribute('data-sdg');
                 const eventTHE = event.getAttribute('data-the');
                 const eventQS = event.getAttribute('data-qs');
                 const eventTitle = event.querySelector('.card-title').innerText.toLowerCase();
                 const eventDesc = event.querySelector('.card-text').innerText.toLowerCase();
 
-                // 1. Check Filters (If empty, match all)
                 const matchSDG = selectedSDGs.length === 0 || selectedSDGs.includes(eventSDG);
                 const matchTHE = selectedTHE.length === 0 || selectedTHE.includes(eventTHE);
                 const matchQS = selectedQS.length === 0 || selectedQS.includes(eventQS);
+                const matchSearch = (searchQuery === "") || (eventTitle.includes(searchQuery) || eventDesc.includes(searchQuery));
 
-                // 2. Check Search (If empty, match all)
-                const matchSearch = (searchQuery === "") || 
-                                    (eventTitle.includes(searchQuery) || eventDesc.includes(searchQuery));
-
-                // Combine conditions
                 if (matchSDG && matchTHE && matchQS && matchSearch) {
                     event.style.display = 'block';
                     visibleCount++;
@@ -498,7 +454,6 @@ $qs_criteria = [
                 }
             });
 
-            // Handle "No Results"
             const noResultsMsg = document.getElementById('no-results');
             if (visibleCount === 0) {
                 noResultsMsg.style.display = 'block';
@@ -507,7 +462,6 @@ $qs_criteria = [
             }
         }
 
-        // Event Listeners
         applyBtn.addEventListener('click', executeFilter);
         searchBtn.addEventListener('click', executeFilter);
         searchInput.addEventListener('keypress', function (e) {
@@ -516,7 +470,7 @@ $qs_criteria = [
             }
         });
 
-        // --- 3. DOWNLOAD BUTTON LOGIC ---
+        // --- Mock PDF Download Logic ---
         function downloadReport(btn) {
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
