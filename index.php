@@ -1,33 +1,20 @@
 <?php
 /**
  * EMU Activity & Event Reporting Portal
- * Main Entry Point (Index)
- * * This file handles the display of the dashboard, including filtering
- * and search functionality for events loaded from a JSON source.
- * * @version 1.0.0
+ * Prototype
+ * * Features: Real PDF Generation (jsPDF), Event Date in Report, Official Layout.
  */
 
-// --- CONFIGURATION & DATA LOADING ---
+// --- DATA SOURCE CONFIGURATION ---
 $json_file = 'events.json';
 $events = [];
 
-// Load event data from JSON file
+// Load JSON
 if (file_exists($json_file)) {
-    $json_content = file_get_contents($json_file);
-    $events = json_decode($json_content, true);
-    
-    // Validate JSON structure
-    if ($events === null) {
-        $events = []; // Fallback to empty array on JSON error
-        error_log("Error: Invalid JSON format in events.json");
-    }
-} else {
-    // File missing
-    $events = [];
-    error_log("Error: events.json not found.");
+    $events = json_decode(file_get_contents($json_file), true) ?? [];
 }
 
-// Filter Definitions
+// Filter Lists
 $sdgs = [
     "SDG 1: No Poverty", "SDG 2: Zero Hunger", "SDG 3: Good Health and Well-being",
     "SDG 4: Quality Education", "SDG 5: Gender Equality", "SDG 6: Clean Water and Sanitation",
@@ -38,14 +25,8 @@ $sdgs = [
     "SDG 16: Peace, Justice and Strong Institutions", "SDG 17: Partnerships for the Goals"
 ];
 
-$the_criteria = [
-    "Teaching", "Research", "Citations Impact", "International Outlook", "Industry Income / Collaboration"
-];
-
-$qs_criteria = [
-    "Teaching & Learning", "Employability", "Research Quality", "Internationalization", 
-    "Inclusiveness", "Social Responsibility"
-];
+$the_criteria = ["Teaching", "Research", "Citations Impact", "International Outlook", "Industry Income / Collaboration"];
+$qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Internationalization", "Inclusiveness", "Social Responsibility"];
 ?>
 
 <!DOCTYPE html>
@@ -59,9 +40,11 @@ $qs_criteria = [
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
     <style>
         :root {
-            /* Light Theme Variables */
             --emu-dark-blue: #002147; 
             --emu-light-blue: #005A9C;
             --emu-orange: #F58220;
@@ -72,7 +55,6 @@ $qs_criteria = [
             --border-color: #dee2e6;
         }
 
-        /* Dark Theme Variables */
         [data-theme="dark"] {
             --emu-dark-blue: #00152e;
             --emu-light-blue: #3a86cc;
@@ -83,12 +65,6 @@ $qs_criteria = [
             --border-color: #333333;
         }
         
-        /* Smooth Scrolling Adjustment for Sticky Navbar */
-        html {
-            scroll-behavior: smooth;
-            scroll-padding-top: 100px; /* Offsets scroll for fixed header */
-        }
-
         body {
             background-color: var(--bg-body);
             font-family: 'Open Sans', sans-serif;
@@ -98,7 +74,6 @@ $qs_criteria = [
 
         h1, h2, h3, h4, h5 { font-family: 'Merriweather', serif; }
 
-        /* Navigation Bar */
         .navbar {
             background-color: #002147; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
@@ -127,7 +102,6 @@ $qs_criteria = [
             cursor: pointer;
         }
 
-        /* Hero Section */
         .hero-section {
             background: linear-gradient(rgba(0, 33, 71, 0.9), rgba(0, 33, 71, 0.8)), url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Eastern_Mediterranean_University_Rectorate_Building.jpg/1200px-Eastern_Mediterranean_University_Rectorate_Building.jpg');
             background-position: center;
@@ -137,7 +111,7 @@ $qs_criteria = [
             border-bottom: 5px solid var(--emu-orange);
         }
 
-        /* Widget Components */
+        /* UI Components */
         .calendar-widget {
             background: var(--bg-card);
             border-top: 4px solid var(--emu-dark-blue);
@@ -171,7 +145,6 @@ $qs_criteria = [
         .sdg-tag { background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; display: inline-block; margin-bottom: 5px;}
         .criteria-tag { background-color: var(--emu-light-blue); color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; display: inline-block; margin-bottom: 5px;}
 
-        /* Filter Controls */
         .filter-box-container {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -188,7 +161,6 @@ $qs_criteria = [
         .scrollable-checkboxes::-webkit-scrollbar { width: 6px; }
         .scrollable-checkboxes::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
 
-        /* Typography Utilities */
         .text-adaptive { color: var(--text-main) !important; }
         .text-muted-adaptive { color: var(--text-muted) !important; }
         
@@ -204,6 +176,8 @@ $qs_criteria = [
             margin-top: 60px;
             border-top: 4px solid var(--emu-orange);
         }
+        
+        html { scroll-padding-top: 100px; }
     </style>
 </head>
 <body>
@@ -222,7 +196,6 @@ $qs_criteria = [
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item"><a class="nav-link" href="calendar.php"><i class="far fa-calendar-alt me-1"></i> Calendar</a></li>
                     <li class="nav-item"><a class="nav-link" href="#all-events-section"><i class="fas fa-list me-1"></i> Events</a></li>
-                    
                     <li class="nav-item">
                         <a href="#" onclick="alert('System Message: Admin Login Panel is under construction.')" class="btn btn-login btn-sm px-4 rounded-pill">
                             <i class="fas fa-lock me-2"></i>Staff Login
@@ -251,7 +224,30 @@ $qs_criteria = [
         <div class="row">
             
             <div class="col-lg-3 mb-4">
-                
+                <div id="calendar" class="calendar-widget p-3 mb-4 rounded-1">
+                    <h5 class="mb-3 text-adaptive border-bottom pb-2">Upcoming Calendar</h5>
+                    <?php if(empty($events)): ?>
+                        <small class="text-muted">No events loaded.</small>
+                    <?php else: ?>
+                        <?php foreach(array_slice($events, 0, 3) as $ev): ?>
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="date-box flex-shrink-0">
+                                <span class="month"><?php echo date('M', strtotime($ev['date'])); ?></span>
+                                <span class="day"><?php echo date('d', strtotime($ev['date'])); ?></span>
+                            </div>
+                            <div class="ms-2">
+                                <small class="d-block fw-bold text-adaptive text-truncate" style="max-width: 150px;">
+                                    <?php echo $ev['title']; ?>
+                                </small>
+                                <small class="text-muted-adaptive" style="font-size: 0.75rem;">
+                                    <i class="far fa-clock"></i> <?php echo $ev['time']; ?>
+                                </small>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
                 <div class="filter-box-container p-3 shadow-sm rounded-1">
                     <h5 class="mb-3 text-adaptive"><i class="fas fa-filter me-2"></i>Filters</h5>
                     
@@ -323,11 +319,7 @@ $qs_criteria = [
 
                 <div class="row" id="events-container">
                     <?php if(empty($events)): ?>
-                        <div class="col-12">
-                            <div class="alert alert-info">
-                                No events found or events.json is missing.
-                            </div>
-                        </div>
+                        <div class="col-12"><div class="alert alert-info">No events found or events.json is missing.</div></div>
                     <?php else: ?>
                         <?php foreach($events as $event): ?>
                         <div class="col-md-6 mb-4 event-item" 
@@ -364,9 +356,9 @@ $qs_criteria = [
                                             <span><i class="far fa-calendar me-1"></i> <?php echo date('d M Y', strtotime($event['date'])); ?></span>
                                         </div>
                                         
-                                        <a href="javascript:void(0);" onclick="downloadReport(this)" class="btn btn-outline-danger btn-sm w-100">
-                                            <i class="fas fa-file-pdf me-2"></i>Download Event Report
-                                        </a>
+                                        <button onclick="generatePDF(<?php echo $event['id']; ?>)" class="btn btn-outline-danger btn-sm w-100">
+                                            <i class="fas fa-file-pdf me-2"></i>Download Report
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -392,35 +384,29 @@ $qs_criteria = [
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // --- Dark Mode Logic ---
+        // --- 1. DATA TRANSFER FROM PHP TO JS ---
+        const allEventsData = <?php echo json_encode($events); ?>;
+
+        // --- 2. DARK MODE ---
         const themeToggleBtn = document.getElementById('theme-toggle');
         const icon = themeToggleBtn.querySelector('i');
-        
         const currentTheme = localStorage.getItem('theme');
         if (currentTheme) {
             document.body.setAttribute('data-theme', currentTheme);
-            if (currentTheme === 'dark') {
-                icon.classList.remove('fa-moon');
-                icon.classList.add('fa-sun');
-            }
+            if (currentTheme === 'dark') { icon.classList.remove('fa-moon'); icon.classList.add('fa-sun'); }
         }
-
         themeToggleBtn.addEventListener('click', () => {
             let theme = document.body.getAttribute('data-theme');
             if (theme === 'dark') {
-                document.body.removeAttribute('data-theme');
-                localStorage.setItem('theme', 'light');
-                icon.classList.remove('fa-sun');
-                icon.classList.add('fa-moon');
+                document.body.removeAttribute('data-theme'); localStorage.setItem('theme', 'light');
+                icon.classList.remove('fa-sun'); icon.classList.add('fa-moon');
             } else {
-                document.body.setAttribute('data-theme', 'dark');
-                localStorage.setItem('theme', 'dark');
-                icon.classList.remove('fa-moon');
-                icon.classList.add('fa-sun');
+                document.body.setAttribute('data-theme', 'dark'); localStorage.setItem('theme', 'dark');
+                icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
             }
         });
 
-        // --- Filter & Search Logic ---
+        // --- 3. FILTERING ---
         const applyBtn = document.getElementById('apply-filters-btn');
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
@@ -447,47 +433,111 @@ $qs_criteria = [
                 const matchSearch = (searchQuery === "") || (eventTitle.includes(searchQuery) || eventDesc.includes(searchQuery));
 
                 if (matchSDG && matchTHE && matchQS && matchSearch) {
-                    event.style.display = 'block';
-                    visibleCount++;
+                    event.style.display = 'block'; visibleCount++;
                 } else {
                     event.style.display = 'none';
                 }
             });
-
-            const noResultsMsg = document.getElementById('no-results');
-            if (visibleCount === 0) {
-                noResultsMsg.style.display = 'block';
-            } else {
-                noResultsMsg.style.display = 'none';
-            }
+            document.getElementById('no-results').style.display = visibleCount === 0 ? 'block' : 'none';
         }
-
         applyBtn.addEventListener('click', executeFilter);
         searchBtn.addEventListener('click', executeFilter);
-        searchInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                executeFilter();
-            }
-        });
+        searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') executeFilter(); });
 
-        // --- Mock PDF Download Logic ---
-        function downloadReport(btn) {
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
-            btn.classList.add('disabled');
+        // --- 4. REAL PDF GENERATION (jsPDF) ---
+        function generatePDF(eventId) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
             
-            setTimeout(() => {
-                alert("Prototype: Report PDF has been downloaded successfully!");
-                btn.innerHTML = '<i class="fas fa-check me-2"></i>Downloaded';
-                btn.classList.remove('btn-outline-danger');
-                btn.classList.add('btn-success');
-                
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.classList.remove('btn-success', 'disabled');
-                    btn.classList.add('btn-outline-danger');
-                }, 3000);
-            }, 1000);
+            // Find the event data
+            const event = allEventsData.find(e => e.id == eventId);
+            if (!event) return;
+
+            // --- HEADER DESIGN ---
+            // Corporate Blue Box
+            doc.setFillColor(0, 33, 71); // EMU Blue
+            doc.rect(0, 0, 210, 40, 'F');
+            
+            // White Text for Header
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.text("EASTERN MEDITERRANEAN UNIVERSITY", 105, 20, { align: "center" });
+            
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text("Activity & Event Reporting System", 105, 30, { align: "center" });
+
+            // Orange Line
+            doc.setDrawColor(245, 130, 32); // EMU Orange
+            doc.setLineWidth(1.5);
+            doc.line(0, 41, 210, 41);
+
+            // --- REPORT METADATA (Top Right) ---
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(10);
+            // Tarih: Etkinlik Tarihi (Event Date)
+            doc.text(`Report ID: EMU-${event.id}-${new Date().getFullYear()}`, 150, 55);
+            doc.text(`Activity Date: ${event.date}`, 150, 60);
+
+            // --- TITLE SECTION ---
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 33, 71);
+            doc.text("OFFICIAL ACTIVITY REPORT", 14, 60);
+            
+            doc.setDrawColor(200, 200, 200);
+            doc.line(14, 65, 196, 65);
+
+            // --- DETAILED CONTENT TABLE ---
+            // Extended table with additional fields: location, participants, status, contact
+            doc.autoTable({
+                startY: 75,
+                head: [['Attribute', 'Details']],
+                body: [
+                    ['Activity Title', event.title],
+                    ['Organizer', event.organizer],
+                    ['Date & Time', `${event.date} at ${event.time}`],
+                    ['Location', event.location || 'N/A'],
+                    ['Participant Count', event.participants || 'N/A'],
+                    ['Event Status', event.status || 'N/A'],
+                    ['Contact Person', event.contact || 'N/A'],
+                    ['SDG Alignment', event.sdg],
+                    ['THE Ranking Category', event.the_cat || 'N/A'],
+                    ['QS Stars Category', event.qs_cat || 'N/A']
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [0, 90, 156] }, // Light Blue
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
+            });
+
+            // --- DESCRIPTION / IMPACT ANALYSIS ---
+            let finalY = doc.lastAutoTable.finalY + 15;
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 33, 71);
+            doc.text("Activity Description / Impact Analysis", 14, finalY);
+            
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(50, 50, 50);
+            
+            // Split text to fit page
+            const descLines = doc.splitTextToSize(event.description, 180);
+            doc.text(descLines, 14, finalY + 8);
+
+            // --- FOOTER (Official Sign-off) ---
+            const pageHeight = doc.internal.pageSize.height;
+            doc.setDrawColor(245, 130, 32);
+            doc.line(14, pageHeight - 30, 196, pageHeight - 30);
+            
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            doc.text("This document is automatically generated by the EMU Activity Reporting System.", 14, pageHeight - 20);
+            doc.text("Accreditation & Quality Assurance Office", 14, pageHeight - 15);
+            
+            // --- SAVE ---
+            doc.save(`EMU_Report_${event.date}_${event.id}.pdf`);
         }
     </script>
 </body>

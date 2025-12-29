@@ -4,24 +4,32 @@
         "title": "Marine Life & Sustainability Panel",
         "date": "2025-12-15",
         "time": "14:30",
-        "description": "A comprehensive seminar regarding the protection of sea turtles and marine ecosystems in Cyprus.",
+        "description": "A comprehensive seminar regarding the protection of sea turtles and marine ecosystems in Cyprus. Experts discussed the impact of microplastics on local marine life.",
         "sdg": "SDG 14: Life Below Water",
         "the_cat": "Research",
         "qs_cat": "Research Quality",
         "organizer": "Biological Sciences Dept.",
-        "image": "https://via.placeholder.com/600x400?text=Marine+Protection"
+        "image": "https://media.istockphoto.com/id/1301265167/photo/clear-blue-aqua-marine-ocean-with-turtle-and-plastic-bottle-pollution.jpg?s=612x612&w=0&k=20&c=Iyx-gCMSByZJUFvWAeKyIj2q1Of1GyXtkW0Ba2-Gs7g=",
+        "participants": "120 (Actual)",
+        "location": "CLCA Lecture Hall",
+        "contact": "Dr. Ali Yilmaz (ali.yilmaz@emu.edu.tr)",
+        "status": "Completed"
     },
     {
         "id": 2,
         "title": "Renewable Energy Systems Workshop",
         "date": "2025-12-20",
         "time": "09:00",
-        "description": "Hands-on workshop focusing on solar panel efficiency and green energy transition strategies.",
+        "description": "Hands-on workshop focusing on solar panel efficiency and green energy transition strategies. Students learned how to calculate photovoltaic output.",
         "sdg": "SDG 7: Affordable and Clean Energy",
         "the_cat": "Teaching",
         "qs_cat": "Teaching & Learning",
         "organizer": "Faculty of Engineering",
-        "image": "https://via.placeholder.com/600x400?text=Solar+Energy"
+        "image": "https://media.istockphoto.com/id/489193525/photo/solar-panels-and-wind-generators-under-blue-sky-on-sunset.jpg?s=612x612&w=0&k=20&c=hIithVnTA3vKOYPa-Okn8qSQunI1OAhGR_tH-NZvqdw=",
+        "participants": "45 (Limited Capacity)",
+        "location": "Engineering Lab 2",
+        "contact": "Eng. Sarah Smith (sarah.smith@emu.edu.tr)",
+        "status": "Planned"
     },
     {
         "id": 3,
@@ -33,7 +41,11 @@
         "the_cat": "Teaching",
         "qs_cat": "Inclusiveness",
         "organizer": "PDRAM",
-        "image": "https://via.placeholder.com/600x400?text=Mental+Health"
+        "image": "https://www.emu.edu.tr/media/c/img_22542_3.jpg?1602832478",
+        "participants": "200+ (Expected)",
+        "location": "LMS Activity Center",
+        "contact": "PDRAM Office (pdram@emu.edu.tr)",
+        "status": "Planned"
     },
     {
         "id": 4,
@@ -45,18 +57,10 @@
         "the_cat": "International Outlook",
         "qs_cat": "Internationalization",
         "organizer": "Rectorate Office",
-        "image": "https://via.placeholder.com/600x400?text=Global+Partners"
-    },
-    {
-        "id": 5,
-        "title": "Zero Hunger Charity Run",
-        "date": "2026-01-10",
-        "time": "08:00",
-        "description": "Community run event to raise funds for local food banks.",
-        "sdg": "SDG 2: Zero Hunger",
-        "the_cat": "Industry Income / Collaboration",
-        "qs_cat": "Social Responsibility",
-        "organizer": "Sports Affairs",
-        "image": "https://via.placeholder.com/600x400?text=Charity+Run"
+        "image": "https://www.apa.org/images/title-collaborative-research_tcm7-185829.jpg?w=144",
+        "participants": "15 (Delegation)",
+        "location": "Rectorate Senate Room",
+        "contact": "Int. Office (io@emu.edu.tr)",
+        "status": "Planned"
     }
 ]
