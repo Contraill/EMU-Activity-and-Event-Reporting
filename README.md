@@ -192,18 +192,6 @@ $qs_list = ["Teaching & Learning", ...];
 - Limited to single JSON file (scalability)
 - No image upload interface (URL-based only)
 
-## 🔄 Future Enhancements
-
-- [ ] MySQL/PostgreSQL database integration
-- [ ] Email notification system
-- [ ] Advanced analytics dashboard
-- [ ] Multi-language support (Turkish/English)
-- [ ] QR code generation for events
-- [ ] iCalendar export
-- [ ] Image upload with validation
-- [ ] Activity logs/audit trail
-- [ ] User role management system
-
 ## 📝 License
 
 This is a university prototype project for educational purposes.
