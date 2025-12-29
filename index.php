@@ -1,8 +1,8 @@
 <?php
 /**
  * EMU Activity & Event Reporting Portal
- * Prototype
- * * Features: Real PDF Generation (jsPDF), Event Date in Report, Official Layout.
+ * Prototype v10
+ * * Features: Login Modal, Role-Based Redirects (Admin/User), PDF Generation.
  */
 
 // --- DATA SOURCE CONFIGURATION ---
@@ -35,7 +35,8 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EMU | Activity & Event Reporting Portal</title>
-    
+    <link rel="icon" type="image/x-icon" href="images/logo.ico">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
@@ -197,7 +198,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                     <li class="nav-item"><a class="nav-link" href="calendar.php"><i class="far fa-calendar-alt me-1"></i> Calendar</a></li>
                     <li class="nav-item"><a class="nav-link" href="#all-events-section"><i class="fas fa-list me-1"></i> Events</a></li>
                     <li class="nav-item">
-                        <a href="#" onclick="alert('System Message: Admin Login Panel is under construction.')" class="btn btn-login btn-sm px-4 rounded-pill">
+                        <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" class="btn btn-login btn-sm px-4 rounded-pill">
                             <i class="fas fa-lock me-2"></i>Staff Login
                         </a>
                     </li>
@@ -381,6 +382,42 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
         </div>
     </footer>
 
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: var(--emu-dark-blue); color: white;">
+                    <h5 class="modal-title"><i class="fas fa-user-shield me-2"></i>Staff Login</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">Please enter your institutional credentials.</p>
+                    <div class="mb-3">
+                        <label for="username" class="form-label fw-bold small">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            <input type="text" class="form-control" id="username">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label fw-bold small">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control" id="password" placeholder="******">
+                        </div>
+                    </div>
+                    
+                    <div id="login-error" class="alert alert-danger py-2 small" style="display:none;">
+                        <i class="fas fa-exclamation-circle me-1"></i> Invalid username or password.
+                    </div>
+
+                    <button type="button" onclick="performLogin()" class="btn btn-primary w-100" style="background-color: var(--emu-orange); border:none;">
+                        Login
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
@@ -490,7 +527,6 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
             doc.line(14, 65, 196, 65);
 
             // --- DETAILED CONTENT TABLE ---
-            // Extended table with additional fields: location, participants, status, contact
             doc.autoTable({
                 startY: 75,
                 head: [['Attribute', 'Details']],
@@ -511,7 +547,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                 columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
             });
 
-            // --- DESCRIPTION / IMPACT ANALYSIS ---
+            // --- DESCRIPTION ---
             let finalY = doc.lastAutoTable.finalY + 15;
             doc.setFontSize(14);
             doc.setFont("helvetica", "bold");
@@ -522,11 +558,10 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
             doc.setFont("helvetica", "normal");
             doc.setTextColor(50, 50, 50);
             
-            // Split text to fit page
             const descLines = doc.splitTextToSize(event.description, 180);
             doc.text(descLines, 14, finalY + 8);
 
-            // --- FOOTER (Official Sign-off) ---
+            // --- FOOTER ---
             const pageHeight = doc.internal.pageSize.height;
             doc.setDrawColor(245, 130, 32);
             doc.line(14, pageHeight - 30, 196, pageHeight - 30);
@@ -536,9 +571,32 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
             doc.text("This document is automatically generated by the EMU Activity Reporting System.", 14, pageHeight - 20);
             doc.text("Accreditation & Quality Assurance Office", 14, pageHeight - 15);
             
-            // --- SAVE ---
             doc.save(`EMU_Report_${event.date}_${event.id}.pdf`);
         }
+
+        // --- 5. LOGIN LOGIC (NEW) ---
+        function performLogin() {
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+            const errorBox = document.getElementById('login-error');
+
+            if (u === 'admin' && p === 'admin') {
+                window.location.href = 'admin_dashboard.php';
+            } else if (u === 'user' && p === 'user') {
+                window.location.href = 'user_dashboard.php';
+            } else {
+                errorBox.style.display = 'block';
+                // Shake animation effect for invalid login
+                const modalContent = document.querySelector('.modal-content');
+                modalContent.classList.add('border-danger');
+                setTimeout(() => { modalContent.classList.remove('border-danger'); }, 500);
+            }
+        }
+        
+        // Allow pressing "Enter" inside inputs to trigger login
+        document.getElementById('password').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') performLogin();
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,572 @@
+<?php
+session_start();
+
+/**
+ * EMU Activity & Event Reporting Portal
+ * User Dashboard (Updated)
+ * * Features: JSON Data, Session Actions, Client-side PDF Generation (Same as Index).
+ */
+
+/* ---------- 1) INITIALIZE EVENTS (Load from JSON) ---------- */
+$json_file = 'events.json';
+// Session'a atma zorunluluğu yok, direkt dosyadan her seferinde taze veri çekelim
+// böylece index.php güncellenirse burası da güncel kalır.
+if (file_exists($json_file)) {
+    $events = json_decode(file_get_contents($json_file), true) ?? [];
+} else {
+    $events = [];
+}
+
+/* ---------- 2) USER SESSION STATE ---------- */
+if (!isset($_SESSION['saved_event_ids'])) $_SESSION['saved_event_ids'] = [];
+if (!isset($_SESSION['registered_event_ids'])) $_SESSION['registered_event_ids'] = [];
+
+$saved_event_ids = &$_SESSION['saved_event_ids'];
+$registered_event_ids = &$_SESSION['registered_event_ids'];
+
+/* ---------- 3) HELPERS ---------- */
+function h($s) {
+    return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
+}
+function redirect_home() {
+    header("Location: user_dashboard.php");
+    exit;
+}
+function has_id($arr, $id) {
+    return in_array((int)$id, array_map('intval', $arr), true);
+}
+function remove_id(&$arr, $id) {
+    $id = (int)$id;
+    $arr = array_values(array_filter($arr, fn($x) => (int)$x !== $id));
+}
+
+/* ---------- 4) ACTIONS: SAVE/REGISTER ---------- */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $id = (int)($_POST['id'] ?? 0);
+
+    if ($action === 'toggle_save' && $id > 0) {
+        if (has_id($saved_event_ids, $id)) remove_id($saved_event_ids, $id);
+        else $saved_event_ids[] = $id;
+        redirect_home();
+    }
+
+    if ($action === 'toggle_register' && $id > 0) {
+        if (has_id($registered_event_ids, $id)) remove_id($registered_event_ids, $id);
+        else $registered_event_ids[] = $id;
+        redirect_home();
+    }
+}
+
+/* ---------- 5) BUILD USER LISTS ---------- */
+$events_by_id = [];
+foreach ($events as $e) $events_by_id[(int)$e['id']] = $e;
+
+$saved_events = [];
+foreach ($saved_event_ids as $id) if (isset($events_by_id[(int)$id])) $saved_events[] = $events_by_id[(int)$id];
+
+$registered_events = [];
+foreach ($registered_event_ids as $id) if (isset($events_by_id[(int)$id])) $registered_events[] = $events_by_id[(int)$id];
+
+// Stats
+$user_name = "Student User";
+$user_role = "Student";
+$total_events = count($events);
+$total_saved = count($saved_events);
+$total_registered = count($registered_events);
+
+// SDGs covered
+$user_sdgs = [];
+foreach ($registered_events as $e) $user_sdgs[$e['sdg']] = true;
+$user_sdg_count = count($user_sdgs);
+
+// Upcoming (Simple sort)
+$sorted = $events;
+usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['time']));
+$upcoming = array_slice($sorted, 0, 3);
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMU | User Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="images/logo.ico">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        /* Copied from Index.php for Consistency */
+        :root {
+            --emu-dark-blue: #002147;
+            --emu-light-blue: #005A9C;
+            --emu-orange: #F58220;
+            --bg-body: #f4f4f4;
+            --bg-card: #ffffff;
+            --text-main: #333333;
+            --text-muted: #6c757d;
+            --border-color: #dee2e6;
+        }
+
+        [data-theme="dark"] {
+            --emu-dark-blue: #00152e;
+            --emu-light-blue: #3a86cc;
+            --bg-body: #121212;
+            --bg-card: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #aaaaaa;
+            --border-color: #333333;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            font-family: 'Open Sans', sans-serif;
+            color: var(--text-main);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        h1, h2, h3, h4, h5 { font-family: 'Merriweather', serif; }
+
+        .navbar {
+            background-color: #002147;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            padding: 15px 0;
+        }
+        .navbar-brand img { height: 60px; }
+
+        .nav-link {
+            color: rgba(255,255,255,0.9) !important;
+            font-weight: 500;
+            margin-left: 15px;
+            font-size: 1.05rem;
+        }
+        .nav-link:hover { color: var(--emu-orange) !important; }
+
+        .btn-profile {
+            background-color: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            margin-left: 20px;
+        }
+        .btn-profile:hover { background-color: white; color: #002147; }
+
+        .btn-theme-toggle {
+            color: white; border: none; background: transparent;
+            font-size: 1.2rem; margin-left: 10px; cursor: pointer;
+        }
+
+        .hero-section {
+            background: linear-gradient(rgba(0, 33, 71, 0.9), rgba(0, 33, 71, 0.8)),
+                url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Eastern_Mediterranean_University_Rectorate_Building.jpg/1200px-Eastern_Mediterranean_University_Rectorate_Building.jpg');
+            background-position: center; background-size: cover;
+            color: white; padding: 60px 0;
+            border-bottom: 5px solid var(--emu-orange);
+        }
+
+        .calendar-widget {
+            background: var(--bg-card);
+            border-top: 4px solid var(--emu-dark-blue);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: background-color 0.3s;
+        }
+
+        .event-card {
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+        }
+        .event-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+
+        .sdg-tag { background-color: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; display: inline-block; margin-bottom: 5px;}
+        .criteria-tag { background-color: var(--emu-light-blue); color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; display: inline-block; margin-bottom: 5px;}
+
+        .text-adaptive { color: var(--text-main) !important; }
+        .text-muted-adaptive { color: var(--text-muted) !important; }
+        
+        [data-theme="dark"] .form-control { background-color: #333; border-color: #444; color: #fff; }
+
+        footer {
+            background-color: #1a1a1a; color: #ccc;
+            padding: 40px 0; border-top: 4px solid var(--emu-orange); margin-top: 60px;
+        }
+        
+        html { scroll-padding-top: 100px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg sticky-top">
+    <div class="container">
+        <a class="navbar-brand" href="index.php">
+            <img src="https://www.emu.edu.tr/static/images/logos/emu-logo-horizontalwhite-tr.svg" alt="EMU Logo">
+        </a>
+
+        <button class="navbar-toggler navbar-dark border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto align-items-center">
+                <li class="nav-item"><a class="nav-link" href="index.php"><i class="fas fa-home me-1"></i> Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="#my-events"><i class="fas fa-calendar-check me-1"></i> My Events</a></li>
+                <li class="nav-item"><a class="nav-link" href="#my-reports"><i class="fas fa-file-pdf me-1"></i> My Reports</a></li>
+
+                <li class="nav-item">
+                    <a href="index.php" class="btn btn-profile btn-sm px-4 rounded-pill">
+                        <i class="fas fa-sign-out-alt me-2"></i>Logout (<?php echo h($user_role); ?>)
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <button class="btn-theme-toggle" id="theme-toggle" title="Toggle Dark/Light Mode">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="hero-section text-center">
+    <div class="container">
+        <h1 class="display-5 fw-bold mb-3">User Dashboard</h1>
+        <p class="lead mb-0" style="opacity: 0.9;">Manage your saved events, registrations, and reports.</p>
+    </div>
+</div>
+
+<div class="container my-5">
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="card event-card h-100"><div class="card-body text-center">
+                <div class="text-muted-adaptive small mb-1"><i class="fas fa-user me-2"></i>User</div>
+                <div class="fw-bold text-adaptive" style="font-size: 1.2rem;"><?php echo h($user_name); ?></div>
+                <div class="text-muted-adaptive small"><?php echo h($user_role); ?></div>
+            </div></div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card event-card h-100"><div class="card-body text-center">
+                <div class="text-muted-adaptive small mb-1"><i class="fas fa-calendar-check me-2"></i>Registered</div>
+                <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $total_registered; ?></div>
+                <div class="text-muted-adaptive small">events</div>
+            </div></div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card event-card h-100"><div class="card-body text-center">
+                <div class="text-muted-adaptive small mb-1"><i class="fas fa-bookmark me-2"></i>Saved</div>
+                <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $total_saved; ?></div>
+                <div class="text-muted-adaptive small">events</div>
+            </div></div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card event-card h-100"><div class="card-body text-center">
+                <div class="text-muted-adaptive small mb-1"><i class="fas fa-globe me-2"></i>SDGs Covered</div>
+                <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $user_sdg_count; ?></div>
+                <div class="text-muted-adaptive small">in my registrations</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="calendar-widget p-3 mb-4 rounded-1">
+                <h5 class="mb-3 text-adaptive border-bottom pb-2">Upcoming Events</h5>
+
+                <?php foreach ($upcoming as $ev): ?>
+                    <div class="mb-3">
+                        <div class="fw-bold text-adaptive small"><?php echo h($ev['title']); ?></div>
+                        <div class="text-muted-adaptive small">
+                            <i class="far fa-calendar me-1"></i><?php echo date('d M Y', strtotime($ev['date'])); ?>
+                            <span class="ms-2"><i class="far fa-clock me-1"></i><?php echo h($ev['time']); ?></span>
+                        </div>
+                        <div class="mt-2">
+                            <span class="sdg-tag"><?php echo h($ev['sdg']); ?></span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+
+                <a href="index.php#all-events-section" class="btn btn-primary btn-sm w-100" style="background-color: var(--emu-light-blue); border:none;">
+                    <i class="fas fa-search me-2"></i>Browse All Events (Portal)
+                </a>
+            </div>
+
+            <div class="calendar-widget p-3 rounded-1">
+                <h5 class="mb-3 text-adaptive border-bottom pb-2">Quick Tips</h5>
+                <div class="text-muted-adaptive small">
+                    • Save events to bookmark them<br>
+                    • Register to unlock report downloads<br>
+                    • Reports open as printable PDFs
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="fw-bold m-0 text-adaptive">Browse Events</h3>
+                <span class="text-muted-adaptive small">Portal total: <?php echo $total_events; ?></span>
+            </div>
+
+            <div class="row">
+                <?php foreach ($events as $event): 
+                    $id = (int)$event['id'];
+                    $is_saved = has_id($saved_event_ids, $id);
+                    $is_registered = has_id($registered_event_ids, $id);
+                ?>
+                    <div class="col-md-6 mb-4">
+                        <div class="card event-card h-100">
+                            <div style="height: 150px; overflow: hidden; background: #eee;">
+                                <img src="<?php echo h($event['image']); ?>" class="w-100" style="object-fit: cover; height: 100%;" alt="Event Image">
+                            </div>
+
+                            <div class="card-body d-flex flex-column">
+                                <div class="mb-2">
+                                    <span class="sdg-tag"><?php echo h($event['sdg']); ?></span>
+                                    <span class="criteria-tag"><i class="fas fa-university me-1"></i><?php echo h($event['the_cat'] ?? ''); ?></span>
+                                </div>
+
+                                <h6 class="fw-bold mb-2 text-adaptive"><?php echo h($event['title']); ?></h6>
+                                <p class="text-muted-adaptive small mb-3"><?php echo h($event['description']); ?></p>
+
+                                <div class="mt-auto">
+                                    <div class="d-flex justify-content-between text-muted-adaptive small border-top pt-3 mb-3"
+                                         style="border-color: var(--border-color) !important;">
+                                        <span><i class="far fa-building me-1"></i><?php echo h($event['organizer']); ?></span>
+                                        <span><i class="far fa-calendar me-1"></i><?php echo date('d M Y', strtotime($event['date'])); ?></span>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <form method="POST" class="w-50">
+                                            <input type="hidden" name="action" value="toggle_save">
+                                            <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                            <button class="btn btn-sm w-100 <?php echo $is_saved ? 'btn-secondary' : 'btn-outline-secondary'; ?>">
+                                                <i class="fas fa-bookmark me-1"></i><?php echo $is_saved ? 'Saved' : 'Save'; ?>
+                                            </button>
+                                        </form>
+
+                                        <form method="POST" class="w-50">
+                                            <input type="hidden" name="action" value="toggle_register">
+                                            <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                            <button class="btn btn-sm w-100 <?php echo $is_registered ? 'btn-primary' : 'btn-outline-primary'; ?>">
+                                                <i class="fas fa-calendar-check me-1"></i><?php echo $is_registered ? 'Registered' : 'Register'; ?>
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+            <div id="my-reports" class="d-flex justify-content-between align-items-center mt-4 mb-3">
+                <h3 class="fw-bold m-0 text-adaptive">My Reports & Registrations</h3>
+            </div>
+
+            <div class="card event-card mb-4">
+                <div class="card-body">
+                    <?php if (count($registered_events) === 0): ?>
+                        <div class="text-muted-adaptive small">No registered events yet. Register to unlock reports.</div>
+                    <?php else: ?>
+                        <?php foreach ($registered_events as $re): ?>
+                            <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2"
+                                 style="border-color: var(--border-color) !important;">
+                                <div>
+                                    <div class="fw-bold text-adaptive small"><?php echo h($re['title']); ?></div>
+                                    <div class="text-muted-adaptive small">
+                                        <i class="far fa-calendar me-1"></i><?php echo date('d M Y', strtotime($re['date'])); ?> 
+                                        • <?php echo h($re['sdg']); ?>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button onclick="generatePDF(<?php echo (int)$re['id']; ?>)" class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-file-pdf me-2"></i>Download Report
+                                    </button>
+                                    
+                                    <form method="POST" onsubmit="return confirm('Unregister from this event?');">
+                                        <input type="hidden" name="action" value="toggle_register">
+                                        <input type="hidden" name="id" value="<?php echo (int)$re['id']; ?>">
+                                        <button class="btn btn-outline-secondary btn-sm" title="Unregister">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div id="my-saved" class="d-flex justify-content-between align-items-center mt-4 mb-3">
+                <h3 class="fw-bold m-0 text-adaptive">Saved Events</h3>
+            </div>
+
+            <div class="card event-card mb-4">
+                <div class="card-body">
+                    <?php if (count($saved_events) === 0): ?>
+                        <div class="text-muted-adaptive small">No saved events yet.</div>
+                    <?php else: ?>
+                        <?php foreach ($saved_events as $se): ?>
+                            <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2"
+                                 style="border-color: var(--border-color) !important;">
+                                <div>
+                                    <div class="fw-bold text-adaptive small"><?php echo h($se['title']); ?></div>
+                                </div>
+                                <form method="POST">
+                                    <input type="hidden" name="action" value="toggle_save">
+                                    <input type="hidden" name="id" value="<?php echo (int)$se['id']; ?>">
+                                    <button class="btn btn-outline-secondary btn-sm">Unsave</button>
+                                </form>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<footer>
+    <div class="container text-center">
+        <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
+        <p class="small text-white mb-0">Software Engineering Project Prototype &copy; 2025</p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // --- 1. DATA TRANSFER FROM PHP TO JS ---
+    const allEventsData = <?php echo json_encode($events); ?>;
+
+    // --- 2. DARK MODE ---
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const icon = themeToggleBtn.querySelector('i');
+
+    const currentTheme = localStorage.getItem('theme');
+    if (currentTheme) {
+        document.body.setAttribute('data-theme', currentTheme);
+        if (currentTheme === 'dark') {
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        }
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+        let theme = document.body.getAttribute('data-theme');
+        if (theme === 'dark') {
+            document.body.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+            icon.classList.remove('fa-sun');
+            icon.classList.add('fa-moon');
+        } else {
+            document.body.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        }
+    });
+
+    // --- 3. DETAILED PDF GENERATION (Copied from Index.php) ---
+    function generatePDF(eventId) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const event = allEventsData.find(e => e.id == eventId);
+        if (!event) return;
+
+        // HEADER (Blue Box)
+        doc.setFillColor(0, 33, 71); 
+        doc.rect(0, 0, 210, 40, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(22);
+        doc.text("EASTERN MEDITERRANEAN UNIVERSITY", 105, 20, { align: "center" });
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text("Activity & Event Reporting System", 105, 30, { align: "center" });
+
+        doc.setDrawColor(245, 130, 32); 
+        doc.setLineWidth(1.5);
+        doc.line(0, 41, 210, 41);
+
+        // METADATA
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.text(`Report ID: EMU-${event.id}-${new Date().getFullYear()}`, 150, 55);
+        doc.text(`Activity Date: ${event.date}`, 150, 60);
+
+        // TITLE
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 33, 71);
+        doc.text("OFFICIAL ACTIVITY REPORT", 14, 60);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, 65, 196, 65);
+
+        // DETAILED TABLE
+        doc.autoTable({
+            startY: 75,
+            head: [['Attribute', 'Details']],
+            body: [
+                ['Activity Title', event.title],
+                ['Organizer', event.organizer],
+                ['Date & Time', `${event.date} at ${event.time}`],
+                ['Location', event.location || 'N/A'], 
+                ['Participant Count', event.participants || 'N/A'], 
+                ['Event Status', event.status || 'N/A'], 
+                ['Contact Person', event.contact || 'N/A'], 
+                ['SDG Alignment', event.sdg],
+                ['THE Ranking Category', event.the_cat || 'N/A'],
+                ['QS Stars Category', event.qs_cat || 'N/A']
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [0, 90, 156] }, 
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
+        });
+
+        // DESCRIPTION
+        let finalY = doc.lastAutoTable.finalY + 15;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 33, 71);
+        doc.text("Activity Description / Impact Analysis", 14, finalY);
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(50, 50, 50);
+        
+        const descLines = doc.splitTextToSize(event.description, 180);
+        doc.text(descLines, 14, finalY + 8);
+
+        // SIGN OFF
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setDrawColor(245, 130, 32);
+        doc.line(14, pageHeight - 30, 196, pageHeight - 30);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text("This document is automatically generated by the EMU Activity Reporting System.", 14, pageHeight - 20);
+        doc.text("Accreditation & Quality Assurance Office", 14, pageHeight - 15);
+        
+        doc.save(`EMU_Report_${event.date}_${event.id}.pdf`);
+    }
+</script>
+
+</body>
+</html>
