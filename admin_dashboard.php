@@ -99,6 +99,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
 
 /* ---------- 4) ACTIONS: CRUD WITH JSON SAVE ---------- */
 $message = '';
+$save_success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -117,18 +118,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new = [
             'id' => next_event_id($events),
             'title' => trim($_POST['title'] ?? ''),
+            'title_tr' => trim($_POST['title_tr'] ?? ''),
             'date' => trim($_POST['date'] ?? ''),
             'time' => trim($_POST['time'] ?? ''),
             'description' => trim($_POST['description'] ?? ''),
+            'description_tr' => trim($_POST['description_tr'] ?? ''),
             'sdg' => $process_multiselect('sdg'),         // Multi-select handler
             'the_cat' => $process_multiselect('the_cat'), // Multi-select handler
             'qs_cat' => $process_multiselect('qs_cat'),   // Multi-select handler
             'organizer' => trim($_POST['organizer'] ?? ''),
+            'organizer_tr' => trim($_POST['organizer'] ?? ''),
             'image' => trim($_POST['image'] ?? ''),
             'location' => trim($_POST['location'] ?? 'TBA'),
+            'location_tr' => trim($_POST['location'] ?? 'TBA'),
             'participants' => trim($_POST['participants'] ?? '0'),
             'status' => trim($_POST['status'] ?? 'Planned'),
-            'contact' => trim($_POST['contact'] ?? 'Admin')
+            'contact' => trim($_POST['contact'] ?? 'Admin'),
+            'contact_tr' => trim($_POST['contact'] ?? 'Admin')
         ];
 
         if ($new['title'] === '' || $new['date'] === '') {
@@ -136,7 +142,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             if ($new['image'] === '') $new['image'] = 'https://via.placeholder.com/600x400?text=New+Event';
             $events[] = $new;
-            save_events_to_file($events); // Write to disk
+            save_events_to_file($events); // Write EN to events.json
+            
+            // Also save TR version to eventstr.json
+            $events_tr_file = 'eventstr.json';
+            $events_tr = file_exists($events_tr_file) ? json_decode(file_get_contents($events_tr_file), true) ?? [] : [];
+            $new_tr = $new;
+            $new_tr['title'] = $new['title_tr'];
+            $new_tr['description'] = $new['description_tr'];
+            $new_tr['organizer'] = $new['organizer_tr'] ?? $new['organizer'];
+            $new_tr['location'] = $new['location_tr'] ?? $new['location'];
+            $new_tr['contact'] = $new['contact_tr'] ?? $new['contact'];
+            unset($new_tr['title_tr'], $new_tr['description_tr'], $new_tr['organizer_tr'], $new_tr['location_tr'], $new_tr['contact_tr']);
+            $events_tr[] = $new_tr;
+            file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            
+            $save_success = true;
             redirect_home();
         }
     }
@@ -147,7 +168,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $idx = find_event_index_by_id($events, $id);
         if ($idx !== -1) {
             array_splice($events, $idx, 1);
-            save_events_to_file($events); // Write to disk
+            save_events_to_file($events); // Write EN to events.json
+            
+            // Also delete from TR file
+            $events_tr_file = 'eventstr.json';
+            if (file_exists($events_tr_file)) {
+                $events_tr = json_decode(file_get_contents($events_tr_file), true) ?? [];
+                $tr_idx = find_event_index_by_id($events_tr, $id);
+                if ($tr_idx !== -1) {
+                    array_splice($events_tr, $tr_idx, 1);
+                    file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                }
+            }
+            
+            $save_success = true;
         }
         redirect_home();
     }
@@ -159,10 +193,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($idx !== -1) {
             $events[$idx]['title'] = trim($_POST['title']);
+            $events[$idx]['title_tr'] = trim($_POST['title_tr']);
             $events[$idx]['date'] = trim($_POST['date']);
             $events[$idx]['time'] = trim($_POST['time']);
             $events[$idx]['description'] = trim($_POST['description']);
+            $events[$idx]['description_tr'] = trim($_POST['description_tr']);
             $events[$idx]['organizer'] = trim($_POST['organizer']);
+            $events[$idx]['organizer_tr'] = trim($_POST['organizer']);
             
             // Handle Multi-select updates
             $events[$idx]['sdg'] = $process_multiselect('sdg');
@@ -178,7 +215,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $img = trim($_POST['image']);
             if ($img !== '') $events[$idx]['image'] = $img;
             
-            save_events_to_file($events); // Write to disk
+            save_events_to_file($events); // Write EN to events.json
+            
+            // Sync TR version to eventstr.json
+            $events_tr_file = 'eventstr.json';
+            $events_tr = file_exists($events_tr_file) ? json_decode(file_get_contents($events_tr_file), true) ?? [] : [];
+            $tr_idx = find_event_index_by_id($events_tr, $id);
+            if ($tr_idx !== -1) {
+                $events_tr[$tr_idx] = $events[$idx];
+                $events_tr[$tr_idx]['title'] = $events[$idx]['title_tr'];
+                $events_tr[$tr_idx]['description'] = $events[$idx]['description_tr'];
+                $events_tr[$tr_idx]['organizer'] = $events[$idx]['organizer_tr'] ?? $events[$idx]['organizer'];
+                $events_tr[$tr_idx]['location'] = $events[$idx]['location_tr'] ?? $events[$idx]['location'];
+                $events_tr[$tr_idx]['contact'] = $events[$idx]['contact_tr'] ?? $events[$idx]['contact'];
+                unset($events_tr[$tr_idx]['title_tr'], $events_tr[$tr_idx]['description_tr'], $events_tr[$tr_idx]['organizer_tr'], $events_tr[$tr_idx]['location_tr'], $events_tr[$tr_idx]['contact_tr']);
+                file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            }
+            
+            $save_success = true;
         }
         redirect_home();
     }
@@ -319,6 +373,11 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
             font-size: 1.2rem; margin-left: 10px; cursor: pointer;
         }
 
+        .btn, .btn:focus { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0,0,0,0.12); }
+        .card, .calendar-widget { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover, .calendar-widget:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.12); }
+
         .hero-section {
             background: linear-gradient(rgba(0, 33, 71, 0.9), rgba(0, 33, 71, 0.8)),
                 url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Eastern_Mediterranean_University_Rectorate_Building.jpg/1200px-Eastern_Mediterranean_University_Rectorate_Building.jpg');
@@ -326,6 +385,10 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
             color: white; padding: 60px 0;
             border-bottom: 5px solid var(--emu-orange);
         }
+
+        .hero-fade { opacity: 0; transform: translateY(8px); transition: all 0.6s ease; }
+        .hero-fade.show { opacity: 1; transform: translateY(0); }
+        .navbar-scrolled { box-shadow: 0 4px 18px rgba(0,0,0,0.18); background-color: #001a38; transition: box-shadow 0.3s ease, background-color 0.3s ease; }
 
         .calendar-widget {
             background: var(--bg-card);
@@ -384,13 +447,16 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
-                <li class="nav-item"><a class="nav-link" href="index.php"><i class="fas fa-home me-1"></i> Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="#manage"><i class="fas fa-screwdriver-wrench me-1"></i> Manage</a></li>
-                <li class="nav-item"><a class="nav-link" href="#reports"><i class="fas fa-file-pdf me-1"></i> Reports</a></li>
+                <li class="nav-item"><a class="nav-link" id="nav-home" href="index.php"><i class="fas fa-home me-1"></i> Home</a></li>
+                <li class="nav-item"><a class="nav-link" id="nav-manage" href="#manage"><i class="fas fa-screwdriver-wrench me-1"></i> Manage</a></li>
+                <li class="nav-item"><a class="nav-link" id="nav-reports" href="#reports"><i class="fas fa-file-pdf me-1"></i> Reports</a></li>
                 <li class="nav-item">
-                    <a href="index.php" class="btn btn-profile btn-sm px-4 rounded-pill">
+                    <a id="nav-logout" href="index.php" class="btn btn-profile btn-sm px-4 rounded-pill">
                         <i class="fas fa-sign-out-alt me-2"></i>Logout (Admin)
                     </a>
+                </li>
+                <li class="nav-item">
+                    <button class="btn btn-outline-light btn-sm ms-2" id="lang-toggle" type="button">TR</button>
                 </li>
                 <li class="nav-item">
                     <button class="btn-theme-toggle" id="theme-toggle" title="Toggle Dark/Light Mode"><i class="fas fa-moon"></i></button>
@@ -400,10 +466,10 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
     </div>
 </nav>
 
-<div class="hero-section text-center">
+<div class="hero-section text-center hero-fade">
     <div class="container">
-        <h1 class="display-5 fw-bold mb-3">Admin Dashboard</h1>
-        <p class="lead mb-0" style="opacity: 0.9;">Manage events, generate reports, and track SDG coverage.</p>
+        <h1 class="display-5 fw-bold mb-3" id="hero-title">Admin Dashboard</h1>
+        <p class="lead mb-0" style="opacity: 0.9;" id="hero-subtitle">Manage events, generate reports, and track SDG coverage.</p>
     </div>
 </div>
 
@@ -416,26 +482,26 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
     <div class="row g-3 mb-4">
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-user-shield me-2"></i>Admin</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-admin"><i class="fas fa-user-shield me-2"></i>Admin</div>
                 <div class="fw-bold text-adaptive" style="font-size: 1.2rem;"><?php echo h($admin_name); ?></div>
-                <div class="text-muted-adaptive small">System Dashboard</div>
+                <div class="text-muted-adaptive small" id="kpi-system">System Dashboard</div>
             </div></div>
         </div>
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-list me-2"></i>Total Events</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-total"><i class="fas fa-list me-2"></i>Total Events</div>
                 <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $total_events; ?></div>
             </div></div>
         </div>
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-globe me-2"></i>Unique SDGs</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-sdgs"><i class="fas fa-globe me-2"></i>Unique SDGs</div>
                 <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $total_unique_sdgs; ?></div>
             </div></div>
         </div>
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-building me-2"></i>Departments</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-depts"><i class="fas fa-building me-2"></i>Departments</div>
                 <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $total_depts; ?></div>
             </div></div>
         </div>
@@ -444,18 +510,18 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
     <div class="row">
         <div class="col-lg-4 mb-4">
             <div class="calendar-widget p-3 mb-4 rounded-1">
-                <h5 class="mb-3 text-adaptive border-bottom pb-2">Coverage Snapshot</h5>
+                <h5 class="mb-3 text-adaptive border-bottom pb-2" id="coverage-title">Coverage Snapshot</h5>
                 
                 <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted-adaptive small"><i class="fas fa-university me-2"></i>Events with THE</span>
+                    <span class="text-muted-adaptive small" id="coverage-the"><i class="fas fa-university me-2"></i>Events with THE</span>
                     <span class="fw-bold text-adaptive small"><?php echo $the_counts; ?></span>
                 </div>
                 <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted-adaptive small"><i class="fas fa-star me-2"></i>Events with QS</span>
+                    <span class="text-muted-adaptive small" id="coverage-qs"><i class="fas fa-star me-2"></i>Events with QS</span>
                     <span class="fw-bold text-adaptive small"><?php echo $qs_counts; ?></span>
                 </div>
                 
-                <h6 class="text-adaptive mt-3 small fw-bold">SDG Breakdown:</h6>
+                <h6 class="text-adaptive mt-3 small fw-bold" id="coverage-sdg">SDG Breakdown:</h6>
                 <div class="mt-2" style="max-height: 200px; overflow-y: auto;">
                     <?php if(empty($sdg_counts)): ?>
                         <small class="text-muted-adaptive">No SDGs tagged yet.</small>
@@ -471,14 +537,14 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
             </div>
 
             <div class="calendar-widget p-3 rounded-1">
-                <h5 class="mb-3 text-adaptive border-bottom pb-2">Admin Actions</h5>
-                <a class="btn btn-primary btn-sm w-100 mb-2" style="background-color: var(--emu-light-blue); border:none;" href="#manage">
+                <h5 class="mb-3 text-adaptive border-bottom pb-2" id="actions-title">Admin Actions</h5>
+                <a id="action-add" class="btn btn-primary btn-sm w-100 mb-2" style="background-color: var(--emu-light-blue); border:none;" href="#manage">
                     <i class="fas fa-plus me-2"></i>Add / Edit Events
                 </a>
-                <a class="btn btn-outline-secondary btn-sm w-100 mb-2" href="admin_dashboard.php?action=export_csv">
+                <a id="action-csv" class="btn btn-outline-secondary btn-sm w-100 mb-2" href="admin_dashboard.php?action=export_csv">
                     <i class="fas fa-download me-2"></i>Export CSV (Improved)
                 </a>
-                <button onclick="generateFullReport()" class="btn btn-outline-danger btn-sm w-100">
+                <button id="action-pdf" onclick="generateFullReport()" class="btn btn-outline-danger btn-sm w-100">
                     <i class="fas fa-file-pdf me-2"></i>Generate Full Report (PDF)
                 </button>
             </div>
@@ -486,8 +552,10 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
 
         <div class="col-lg-8">
             <div id="manage" class="d-flex justify-content-between align-items-center mb-3">
-                <h3 class="fw-bold m-0 text-adaptive">Event Management</h3>
-                <span class="text-muted-adaptive small">Changes saved to events</span>
+                <h3 class="fw-bold m-0 text-adaptive" id="manage-title">Event Management</h3>
+                <?php if ($save_success): ?>
+                    <span class="text-success small" id="manage-saved"><i class="fas fa-check-circle me-1"></i>Changes saved to events</span>
+                <?php endif; ?>
             </div>
 
             <div class="card event-card mb-4">
@@ -503,9 +571,13 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
                         <?php endif; ?>
 
                         <div class="row g-2">
-                            <div class="col-md-8">
-                                <label class="form-label small text-muted-adaptive">Title</label>
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted-adaptive">Title (EN) <span class="text-danger">*</span></label>
                                 <input class="form-control" name="title" value="<?php echo h($edit_event['title'] ?? ''); ?>" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted-adaptive">Title (TR) <span class="text-danger">*</span></label>
+                                <input class="form-control" name="title_tr" value="<?php echo h($edit_event['title_tr'] ?? ''); ?>" required>
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small text-muted-adaptive">Date</label>
@@ -588,9 +660,13 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
                                 </div>
                             </div>
 
-                            <div class="col-12">
-                                <label class="form-label small text-muted-adaptive">Description</label>
-                                <textarea class="form-control" name="description" rows="3"><?php echo h($edit_event['description'] ?? ''); ?></textarea>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted-adaptive">Description (EN) <span class="text-danger">*</span></label>
+                                <textarea class="form-control" name="description" rows="3" required><?php echo h($edit_event['description'] ?? ''); ?></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted-adaptive">Description (TR) <span class="text-danger">*</span></label>
+                                <textarea class="form-control" name="description_tr" rows="3" required><?php echo h($edit_event['description_tr'] ?? ''); ?></textarea>
                             </div>
                         </div>
 
@@ -662,6 +738,102 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
 
 <script>
     const allEventsData = <?php echo json_encode($sorted); ?>;
+    let currentLang = localStorage.getItem('lang') || 'en';
+    const langToggleBtn = document.getElementById('lang-toggle');
+
+    const translations = {
+        en: {
+            navHome: '<i class="fas fa-home me-1"></i> Home',
+            navManage: '<i class="fas fa-screwdriver-wrench me-1"></i> Manage',
+            navReports: '<i class="fas fa-file-pdf me-1"></i> Reports',
+            navLogout: '<i class="fas fa-sign-out-alt me-2"></i>Logout (Admin)',
+            heroTitle: 'Admin Dashboard',
+            heroSubtitle: 'Manage events, generate reports, and track SDG coverage.',
+            kpiAdmin: '<i class="fas fa-user-shield me-2"></i>Admin',
+            kpiSystem: 'System Dashboard',
+            kpiTotal: '<i class="fas fa-list me-2"></i>Total Events',
+            kpiSdgs: '<i class="fas fa-globe me-2"></i>Unique SDGs',
+            kpiDepts: '<i class="fas fa-building me-2"></i>Departments',
+            coverageTitle: 'Coverage Snapshot',
+            coverageThe: '<i class="fas fa-university me-2"></i>Events with THE',
+            coverageQs: '<i class="fas fa-star me-2"></i>Events with QS',
+            coverageSdg: 'SDG Breakdown:',
+            actionsTitle: 'Admin Actions',
+            actionAdd: '<i class="fas fa-plus me-2"></i>Add / Edit Events',
+            actionCsv: '<i class="fas fa-download me-2"></i>Export CSV (Improved)',
+            actionPdf: '<i class="fas fa-file-pdf me-2"></i>Generate Full Report (PDF)',
+            manageTitle: 'Event Management',
+            manageSaved: '<i class="fas fa-check-circle me-1"></i>Changes saved to events'
+        },
+        tr: {
+            navHome: '<i class="fas fa-home me-1"></i> Ana Sayfa',
+            navManage: '<i class="fas fa-screwdriver-wrench me-1"></i> Yönet',
+            navReports: '<i class="fas fa-file-pdf me-1"></i> Raporlar',
+            navLogout: '<i class="fas fa-sign-out-alt me-2"></i>Çıkış Yap (Admin)',
+            heroTitle: 'Yönetici Paneli',
+            heroSubtitle: 'Etkinlikleri yönetin, raporlar oluşturun ve SKH kapsamını takip edin.',
+            kpiAdmin: '<i class="fas fa-user-shield me-2"></i>Yönetici',
+            kpiSystem: 'Sistem Paneli',
+            kpiTotal: '<i class="fas fa-list me-2"></i>Toplam Etkinlik',
+            kpiSdgs: '<i class="fas fa-globe me-2"></i>Benzersiz SKH',
+            kpiDepts: '<i class="fas fa-building me-2"></i>Bölümler',
+            coverageTitle: 'Kapsam Özeti',
+            coverageThe: '<i class="fas fa-university me-2"></i>THE ile Etkinlikler',
+            coverageQs: '<i class="fas fa-star me-2"></i>QS ile Etkinlikler',
+            coverageSdg: 'SKH Dağılımı:',
+            actionsTitle: 'Yönetici İşlemleri',
+            actionAdd: '<i class="fas fa-plus me-2"></i>Etkinlik Ekle / Düzenle',
+            actionCsv: '<i class="fas fa-download me-2"></i>CSV İndir (Geliştirilmiş)',
+            actionPdf: '<i class="fas fa-file-pdf me-2"></i>Tam Rapor Oluştur (PDF)',
+            manageTitle: 'Etkinlik Yönetimi',
+            manageSaved: 'Değişiklikler kaydedildi'
+        }
+    };
+
+    function applyTranslations(lang) {
+        const dict = translations[lang] || translations.en;
+        const targets = {
+            'nav-home': 'navHome',
+            'nav-manage': 'navManage',
+            'nav-reports': 'navReports',
+            'nav-logout': 'navLogout',
+            'hero-title': 'heroTitle',
+            'hero-subtitle': 'heroSubtitle',
+            'kpi-admin': 'kpiAdmin',
+            'kpi-system': 'kpiSystem',
+            'kpi-total': 'kpiTotal',
+            'kpi-sdgs': 'kpiSdgs',
+            'kpi-depts': 'kpiDepts',
+            'coverage-title': 'coverageTitle',
+            'coverage-the': 'coverageThe',
+            'coverage-qs': 'coverageQs',
+            'coverage-sdg': 'coverageSdg',
+            'actions-title': 'actionsTitle',
+            'action-add': 'actionAdd',
+            'action-csv': 'actionCsv',
+            'action-pdf': 'actionPdf',
+            'manage-title': 'manageTitle',
+            'manage-saved': 'manageSaved'
+        };
+        Object.entries(targets).forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            if (el && dict[key]) el.innerHTML = dict[key];
+        });
+        langToggleBtn.textContent = lang === 'en' ? 'TR' : 'EN';
+    }
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        applyTranslations(lang);
+    }
+
+    langToggleBtn.addEventListener('click', () => {
+        const nextLang = currentLang === 'en' ? 'tr' : 'en';
+        setLanguage(nextLang);
+    });
+
+    applyTranslations(currentLang);
 
     // Dark Mode
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -681,6 +853,23 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
             icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
         }
     });
+
+    // Hero reveal and navbar shadow on scroll
+    const heroSection = document.querySelector('.hero-section');
+    if (heroSection) {
+        setTimeout(() => heroSection.classList.add('show'), 150);
+    }
+    const navbarEl = document.querySelector('.navbar');
+    const handleNavScroll = () => {
+        if (!navbarEl) return;
+        if (window.scrollY > 10) {
+            navbarEl.classList.add('navbar-scrolled');
+        } else {
+            navbarEl.classList.remove('navbar-scrolled');
+        }
+    };
+    window.addEventListener('scroll', handleNavScroll);
+    handleNavScroll();
 
     // Admin PDF Generation
     function generateFullReport() {

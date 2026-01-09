@@ -75,15 +75,25 @@ $total_events = count($events);
 $total_saved = count($saved_events);
 $total_registered = count($registered_events);
 
-// SDGs covered
-$user_sdgs = [];
-foreach ($registered_events as $e) $user_sdgs[$e['sdg']] = true;
-$user_sdg_count = count($user_sdgs);
+// Attended events (registered + past)
+$attended_count = 0;
+$now = time();
+foreach ($registered_events as $e) {
+    $eventDateTime = strtotime($e['date'] . ' ' . $e['time']);
+    if ($eventDateTime < $now) $attended_count++;
+}
 
 // Upcoming (Simple sort)
 $sorted = $events;
 usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['time']));
 $upcoming = array_slice($sorted, 0, 3);
+
+// Filter events for Browse section (only future events)
+$now_time = time();
+$browse_events = array_filter($events, function($e) use ($now_time) {
+    $eventDateTime = strtotime($e['date'] . ' ' . $e['time']);
+    return $eventDateTime >= $now_time;
+});
 ?>
 
 <!DOCTYPE html>
@@ -161,6 +171,11 @@ $upcoming = array_slice($sorted, 0, 3);
             font-size: 1.2rem; margin-left: 10px; cursor: pointer;
         }
 
+        .btn, .btn:focus { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0,0,0,0.12); }
+        .card, .calendar-widget { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover, .calendar-widget:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.12); }
+
         .hero-section {
             background: linear-gradient(rgba(0, 33, 71, 0.9), rgba(0, 33, 71, 0.8)),
                 url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Eastern_Mediterranean_University_Rectorate_Building.jpg/1200px-Eastern_Mediterranean_University_Rectorate_Building.jpg');
@@ -168,6 +183,14 @@ $upcoming = array_slice($sorted, 0, 3);
             color: white; padding: 60px 0;
             border-bottom: 5px solid var(--emu-orange);
         }
+
+        .hero-fade { opacity: 0; transform: translateY(8px); transition: all 0.6s ease; }
+        .hero-fade.show { opacity: 1; transform: translateY(0); }
+        .navbar-scrolled { box-shadow: 0 4px 18px rgba(0,0,0,0.18); background-color: #001a38; transition: box-shadow 0.3s ease, background-color 0.3s ease; }
+
+        .event-expired .card-img-top { filter: grayscale(100%); opacity: 0.6; }
+        .expired-badge { position: absolute; top: 10px; right: 10px; background-color: rgba(220, 53, 69, 0.9); color: white; padding: 5px 12px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; z-index: 10; }
+        .today-badge { position: absolute; top: 10px; right: 10px; background-color: rgba(245, 130, 32, 0.95); color: white; padding: 5px 12px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; z-index: 10; }
 
         .calendar-widget {
             background: var(--bg-card);
@@ -215,14 +238,18 @@ $upcoming = array_slice($sorted, 0, 3);
 
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
-                <li class="nav-item"><a class="nav-link" href="index.php"><i class="fas fa-home me-1"></i> Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="#my-events"><i class="fas fa-calendar-check me-1"></i> My Events</a></li>
-                <li class="nav-item"><a class="nav-link" href="#my-reports"><i class="fas fa-file-pdf me-1"></i> My Reports</a></li>
+                <li class="nav-item"><a class="nav-link" id="nav-home" href="index.php"><i class="fas fa-home me-1"></i> Home</a></li>
+                <li class="nav-item"><a class="nav-link" id="nav-events" href="#my-events"><i class="fas fa-calendar-check me-1"></i> My Events</a></li>
+                <li class="nav-item"><a class="nav-link" id="nav-reports" href="#my-reports"><i class="fas fa-file-pdf me-1"></i> My Reports</a></li>
 
                 <li class="nav-item">
-                    <a href="index.php" class="btn btn-profile btn-sm px-4 rounded-pill">
+                    <a id="nav-logout" href="index.php" class="btn btn-profile btn-sm px-4 rounded-pill">
                         <i class="fas fa-sign-out-alt me-2"></i>Logout (<?php echo h($user_role); ?>)
                     </a>
+                </li>
+
+                <li class="nav-item">
+                    <button class="btn btn-outline-light btn-sm ms-2" id="lang-toggle" type="button">TR</button>
                 </li>
 
                 <li class="nav-item">
@@ -235,10 +262,10 @@ $upcoming = array_slice($sorted, 0, 3);
     </div>
 </nav>
 
-<div class="hero-section text-center">
+<div class="hero-section text-center hero-fade">
     <div class="container">
-        <h1 class="display-5 fw-bold mb-3">User Dashboard</h1>
-        <p class="lead mb-0" style="opacity: 0.9;">Manage your saved events, registrations, and reports.</p>
+        <h1 class="display-5 fw-bold mb-3" id="hero-title">User Dashboard</h1>
+        <p class="lead mb-0" style="opacity: 0.9;" id="hero-subtitle">Manage your saved events, registrations, and reports.</p>
     </div>
 </div>
 
@@ -247,7 +274,7 @@ $upcoming = array_slice($sorted, 0, 3);
     <div class="row g-3 mb-4">
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body text-center">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-user me-2"></i>User</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-user"><i class="fas fa-user me-2"></i>User</div>
                 <div class="fw-bold text-adaptive" style="font-size: 1.2rem;"><?php echo h($user_name); ?></div>
                 <div class="text-muted-adaptive small"><?php echo h($user_role); ?></div>
             </div></div>
@@ -255,25 +282,25 @@ $upcoming = array_slice($sorted, 0, 3);
 
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body text-center">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-calendar-check me-2"></i>Registered</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-registered"><i class="fas fa-calendar-check me-2"></i>Registered</div>
                 <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $total_registered; ?></div>
-                <div class="text-muted-adaptive small">events</div>
+                <div class="text-muted-adaptive small" id="kpi-registered-label">events</div>
             </div></div>
         </div>
 
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body text-center">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-bookmark me-2"></i>Saved</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-saved"><i class="fas fa-bookmark me-2"></i>Saved</div>
                 <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $total_saved; ?></div>
-                <div class="text-muted-adaptive small">events</div>
+                <div class="text-muted-adaptive small" id="kpi-saved-label">events</div>
             </div></div>
         </div>
 
         <div class="col-lg-3 col-md-6">
             <div class="card event-card h-100"><div class="card-body text-center">
-                <div class="text-muted-adaptive small mb-1"><i class="fas fa-globe me-2"></i>SDGs Covered</div>
-                <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $user_sdg_count; ?></div>
-                <div class="text-muted-adaptive small">in my registrations</div>
+                <div class="text-muted-adaptive small mb-1" id="kpi-attended"><i class="fas fa-check-circle me-2"></i>Attended</div>
+                <div class="fw-bold text-adaptive" style="font-size: 1.8rem;"><?php echo $attended_count; ?></div>
+                <div class="text-muted-adaptive small" id="kpi-attended-label">completed events</div>
             </div></div>
         </div>
     </div>
@@ -281,29 +308,19 @@ $upcoming = array_slice($sorted, 0, 3);
     <div class="row">
         <div class="col-lg-4 mb-4">
             <div class="calendar-widget p-3 mb-4 rounded-1">
-                <h5 class="mb-3 text-adaptive border-bottom pb-2">Upcoming Events</h5>
+                <h5 class="mb-3 text-adaptive border-bottom pb-2" id="upcoming-title">Upcoming Events</h5>
+                <div id="upcoming-events-container">
+                    <!-- JavaScript will populate this -->
+                </div>
 
-                <?php foreach ($upcoming as $ev): ?>
-                    <div class="mb-3">
-                        <div class="fw-bold text-adaptive small"><?php echo h($ev['title']); ?></div>
-                        <div class="text-muted-adaptive small">
-                            <i class="far fa-calendar me-1"></i><?php echo date('d M Y', strtotime($ev['date'])); ?>
-                            <span class="ms-2"><i class="far fa-clock me-1"></i><?php echo h($ev['time']); ?></span>
-                        </div>
-                        <div class="mt-2">
-                            <span class="sdg-tag"><?php echo h($ev['sdg']); ?></span>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-
-                <a href="index.php#all-events-section" class="btn btn-primary btn-sm w-100" style="background-color: var(--emu-light-blue); border:none;">
+                <a id="browse-btn" href="index.php#all-events-section" class="btn btn-primary btn-sm w-100" style="background-color: var(--emu-light-blue); border:none;">
                     <i class="fas fa-search me-2"></i>Browse All Events (Portal)
                 </a>
             </div>
 
             <div class="calendar-widget p-3 rounded-1">
-                <h5 class="mb-3 text-adaptive border-bottom pb-2">Quick Tips</h5>
-                <div class="text-muted-adaptive small">
+                <h5 class="mb-3 text-adaptive border-bottom pb-2" id="tips-title">Quick Tips</h5>
+                <div class="text-muted-adaptive small" id="tips-content">
                     • Save events to bookmark them<br>
                     • Register to unlock report downloads<br>
                     • Reports open as printable PDFs
@@ -314,71 +331,22 @@ $upcoming = array_slice($sorted, 0, 3);
         <div class="col-lg-8">
 
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h3 class="fw-bold m-0 text-adaptive">Browse Events</h3>
-                <span class="text-muted-adaptive small">Portal total: <?php echo $total_events; ?></span>
+                <h3 class="fw-bold m-0 text-adaptive" id="browse-title">Browse Events</h3>
+                <span class="text-muted-adaptive small" id="portal-total">Portal total: <?php echo $total_events; ?></span>
             </div>
 
-            <div class="row">
-                <?php foreach ($events as $event): 
-                    $id = (int)$event['id'];
-                    $is_saved = has_id($saved_event_ids, $id);
-                    $is_registered = has_id($registered_event_ids, $id);
-                ?>
-                    <div class="col-md-6 mb-4">
-                        <div class="card event-card h-100">
-                            <div style="height: 150px; overflow: hidden; background: #eee;">
-                                <img src="<?php echo h($event['image']); ?>" class="w-100" style="object-fit: cover; height: 100%;" alt="Event Image">
-                            </div>
-
-                            <div class="card-body d-flex flex-column">
-                                <div class="mb-2">
-                                    <span class="sdg-tag"><?php echo h($event['sdg']); ?></span>
-                                    <span class="criteria-tag"><i class="fas fa-university me-1"></i><?php echo h($event['the_cat'] ?? ''); ?></span>
-                                </div>
-
-                                <h6 class="fw-bold mb-2 text-adaptive"><?php echo h($event['title']); ?></h6>
-                                <p class="text-muted-adaptive small mb-3"><?php echo h($event['description']); ?></p>
-
-                                <div class="mt-auto">
-                                    <div class="d-flex justify-content-between text-muted-adaptive small border-top pt-3 mb-3"
-                                         style="border-color: var(--border-color) !important;">
-                                        <span><i class="far fa-building me-1"></i><?php echo h($event['organizer']); ?></span>
-                                        <span><i class="far fa-calendar me-1"></i><?php echo date('d M Y', strtotime($event['date'])); ?></span>
-                                    </div>
-
-                                    <div class="d-flex gap-2">
-                                        <form method="POST" class="w-50">
-                                            <input type="hidden" name="action" value="toggle_save">
-                                            <input type="hidden" name="id" value="<?php echo $id; ?>">
-                                            <button class="btn btn-sm w-100 <?php echo $is_saved ? 'btn-secondary' : 'btn-outline-secondary'; ?>">
-                                                <i class="fas fa-bookmark me-1"></i><?php echo $is_saved ? 'Saved' : 'Save'; ?>
-                                            </button>
-                                        </form>
-
-                                        <form method="POST" class="w-50">
-                                            <input type="hidden" name="action" value="toggle_register">
-                                            <input type="hidden" name="id" value="<?php echo $id; ?>">
-                                            <button class="btn btn-sm w-100 <?php echo $is_registered ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                                                <i class="fas fa-calendar-check me-1"></i><?php echo $is_registered ? 'Registered' : 'Register'; ?>
-                                            </button>
-                                        </form>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+            <div class="row" id="browse-events-container">
+                <!-- JavaScript will populate this -->
             </div>
 
             <div id="my-reports" class="d-flex justify-content-between align-items-center mt-4 mb-3">
-                <h3 class="fw-bold m-0 text-adaptive">My Reports & Registrations</h3>
+                <h3 class="fw-bold m-0 text-adaptive" id="reports-title">My Reports & Registrations</h3>
             </div>
 
             <div class="card event-card mb-4">
                 <div class="card-body">
                     <?php if (count($registered_events) === 0): ?>
-                        <div class="text-muted-adaptive small">No registered events yet. Register to unlock reports.</div>
+                        <div class="text-muted-adaptive small" id="no-registered">No registered events yet. Register to unlock reports.</div>
                     <?php else: ?>
                         <?php foreach ($registered_events as $re): ?>
                             <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2"
@@ -410,13 +378,13 @@ $upcoming = array_slice($sorted, 0, 3);
             </div>
 
             <div id="my-saved" class="d-flex justify-content-between align-items-center mt-4 mb-3">
-                <h3 class="fw-bold m-0 text-adaptive">Saved Events</h3>
+                <h3 class="fw-bold m-0 text-adaptive" id="saved-title">Saved Events</h3>
             </div>
 
             <div class="card event-card mb-4">
                 <div class="card-body">
                     <?php if (count($saved_events) === 0): ?>
-                        <div class="text-muted-adaptive small">No saved events yet.</div>
+                        <div class="text-muted-adaptive small" id="no-saved">No saved events yet.</div>
                     <?php else: ?>
                         <?php foreach ($saved_events as $se): ?>
                             <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2"
@@ -450,7 +418,340 @@ $upcoming = array_slice($sorted, 0, 3);
 
 <script>
     // --- 1. DATA TRANSFER FROM PHP TO JS ---
-    const allEventsData = <?php echo json_encode($events); ?>;
+    let allEventsData = <?php echo json_encode($events); ?>;
+    let currentLang = localStorage.getItem('lang') || 'en';
+    const langToggleBtn = document.getElementById('lang-toggle');
+    const dataCache = {};
+
+    // Fetch events based on language
+    async function fetchEventsForLang(lang) {
+        if (dataCache[lang]) return dataCache[lang];
+        const file = lang === 'tr' ? 'eventstr.json' : 'events.json';
+        try {
+            const response = await fetch(file);
+            const data = await response.json();
+            dataCache[lang] = data;
+            return data;
+        } catch (error) {
+            console.error('Error loading events:', error);
+            return [];
+        }
+    }
+
+    // Sort events by date/time
+    function sortEventsBySchedule(events) {
+        return events.sort((a, b) => {
+            const dateA = new Date(a.date + ' ' + a.time).getTime();
+            const dateB = new Date(b.date + ' ' + b.time).getTime();
+            return dateA - dateB;
+        });
+    }
+
+    // Render upcoming events sidebar
+    function renderUpcomingSidebar(events) {
+        const sorted = sortEventsBySchedule([...events]);
+        const upcoming = sorted.slice(0, 3);
+        const container = document.getElementById('upcoming-events-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        upcoming.forEach(ev => {
+            const dateObj = new Date(ev.date);
+            const locale = currentLang === 'tr' ? 'tr-TR' : 'en-US';
+            const formatted = dateObj.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
+            const sdgText = currentLang === 'tr' ? (sdgTranslations.tr[ev.sdg] || ev.sdg) : ev.sdg;
+            
+            const html = `
+                <div class="mb-3">
+                    <div class="fw-bold text-adaptive small">${ev.title}</div>
+                    <div class="text-muted-adaptive small">
+                        <i class="far fa-calendar me-1"></i>${formatted}
+                        <span class="ms-2"><i class="far fa-clock me-1"></i>${ev.time}</span>
+                    </div>
+                    <div class="mt-2">
+                        <span class="sdg-tag" data-original="${ev.sdg}">${sdgText}</span>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    }
+
+    // Render browse events section
+    function renderBrowseEvents(events) {
+        const now = Date.now();
+        const browseEvents = events.filter(e => {
+            const eventDateTime = new Date(e.date + ' ' + e.time).getTime();
+            return eventDateTime >= now;
+        });
+
+        const container = document.getElementById('browse-events-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+        browseEvents.forEach(event => {
+            const eventDateTime = new Date(event.date + ' ' + event.time).getTime();
+            const today = new Date().setHours(0, 0, 0, 0);
+            const isToday = (eventDateTime >= today && eventDateTime < today + 86400000) && eventDateTime >= now;
+            const isExpired = eventDateTime < now;
+            const expiredClass = isExpired ? 'event-expired' : '';
+
+            const dateObj = new Date(event.date);
+            const locale = currentLang === 'tr' ? 'tr-TR' : 'en-US';
+            const formatted = dateObj.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
+
+            const dict = translations[currentLang];
+            const sdgText = currentLang === 'tr' ? (sdgTranslations.tr[event.sdg] || event.sdg) : event.sdg;
+            const theText = currentLang === 'tr' ? (theTranslations.tr[event.the_cat] || event.the_cat) : event.the_cat;
+
+            const isSaved = <?php echo json_encode($saved_event_ids); ?>.includes(event.id);
+            const isRegistered = <?php echo json_encode($registered_event_ids); ?>.includes(event.id);
+
+            const badgeHtml = isToday ? `<span class="today-badge"><i class="fas fa-clock me-1"></i><span class="badge-text">${dict.todayBadge}</span></span>` :
+                             isExpired ? `<span class="expired-badge"><i class="fas fa-check-circle me-1"></i><span class="badge-text">${dict.completedBadge}</span></span>` : '';
+
+            const theTagHtml = event.the_cat ? `<span class="criteria-tag event-the" data-original="${event.the_cat}"><i class="fas fa-university me-1"></i>${theText}</span>` : '';
+
+            const html = `
+                <div class="col-md-6 mb-4 event-card-wrapper ${expiredClass}" 
+                     data-date="${event.date}" 
+                     data-time="${event.time}" 
+                     data-sdg="${event.sdg}" 
+                     data-the="${event.the_cat || ''}">
+                    <div class="card event-card h-100">
+                        <div style="height: 150px; overflow: hidden; background: #eee; position: relative;">
+                            <img src="${event.image}" class="card-img-top w-100" style="object-fit: cover; height: 100%;" alt="Event Image">
+                            ${badgeHtml}
+                        </div>
+
+                        <div class="card-body d-flex flex-column">
+                            <div class="mb-2">
+                                <span class="sdg-tag event-sdg" data-original="${event.sdg}">${sdgText}</span>
+                                ${theTagHtml}
+                            </div>
+
+                            <h6 class="fw-bold mb-2 text-adaptive">${event.title}</h6>
+                            <p class="text-muted-adaptive small mb-3">${event.description}</p>
+
+                            <div class="mt-auto">
+                                <div class="d-flex justify-content-between text-muted-adaptive small border-top pt-3 mb-3"
+                                     style="border-color: var(--border-color) !important;">
+                                    <span><i class="far fa-building me-1"></i>${event.organizer}</span>
+                                    <span><i class="far fa-calendar me-1"></i>${formatted}</span>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <form method="POST" class="w-50">
+                                        <input type="hidden" name="action" value="toggle_save">
+                                        <input type="hidden" name="id" value="${event.id}">
+                                        <button class="btn btn-sm w-100 ${isSaved ? 'btn-secondary' : 'btn-outline-secondary'}">
+                                            <i class="fas fa-bookmark me-1"></i><span class="btn-save-text">${isSaved ? dict.saved : dict.save}</span>
+                                        </button>
+                                    </form>
+
+                                    <form method="POST" class="w-50">
+                                        <input type="hidden" name="action" value="toggle_register">
+                                        <input type="hidden" name="id" value="${event.id}">
+                                        <button class="btn btn-sm w-100 ${isRegistered ? 'btn-primary' : 'btn-outline-primary'}">
+                                            <i class="fas fa-calendar-check me-1"></i><span class="btn-register-text">${isRegistered ? dict.registered : dict.register}</span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    }
+
+    const translations = {
+        en: {
+            navHome: '<i class="fas fa-home me-1"></i> Home',
+            navEvents: '<i class="fas fa-calendar-check me-1"></i> My Events',
+            navReports: '<i class="fas fa-file-pdf me-1"></i> My Reports',
+            navLogout: '<i class="fas fa-sign-out-alt me-2"></i>Logout (<?php echo h($user_role); ?>)',
+            heroTitle: 'User Dashboard',
+            heroSubtitle: 'Manage your saved events, registrations, and reports.',
+            kpiUser: '<i class="fas fa-user me-2"></i>User',
+            kpiRegistered: '<i class="fas fa-calendar-check me-2"></i>Registered',
+            kpiRegisteredLabel: 'events',
+            kpiSaved: '<i class="fas fa-bookmark me-2"></i>Saved',
+            kpiSavedLabel: 'events',
+            kpiAttended: '<i class="fas fa-check-circle me-2"></i>Attended',
+            kpiAttendedLabel: 'completed events',
+            upcomingTitle: 'Upcoming Events',
+            browseBtn: '<i class="fas fa-search me-2"></i>Browse All Events (Portal)',
+            tipsTitle: 'Quick Tips',
+            tipsContent: '• Save events to bookmark them<br>• Register to unlock report downloads<br>• Reports open as printable PDFs',
+            browseTitle: 'Browse Events',
+            portalTotal: 'Portal total: <?php echo $total_events; ?>',
+            reportsTitle: 'My Reports & Registrations',
+            savedTitle: 'Saved Events',
+            noRegistered: 'No registered events yet. Register to unlock reports.',
+            noSaved: 'No saved events yet.',
+            todayBadge: 'TODAY',
+            completedBadge: 'COMPLETED',
+            save: 'Save',
+            saved: 'Saved',
+            register: 'Register',
+            registered: 'Registered'
+        },
+        tr: {
+            navHome: '<i class="fas fa-home me-1"></i> Ana Sayfa',
+            navEvents: '<i class="fas fa-calendar-check me-1"></i> Etkinliklerim',
+            navReports: '<i class="fas fa-file-pdf me-1"></i> Raporlarım',
+            navLogout: '<i class="fas fa-sign-out-alt me-2"></i>Çıkış Yap (<?php echo h($user_role); ?>)',
+            heroTitle: 'Kullanıcı Paneli',
+            heroSubtitle: 'Kayıtlı etkinliklerinizi, kayıtlarınızı ve raporlarınızı yönetin.',
+            kpiUser: '<i class="fas fa-user me-2"></i>Kullanıcı',
+            kpiRegistered: '<i class="fas fa-calendar-check me-2"></i>Kayıtlı',
+            kpiRegisteredLabel: 'etkinlik',
+            kpiSaved: '<i class="fas fa-bookmark me-2"></i>Kaydedilen',
+            kpiSavedLabel: 'etkinlik',
+            kpiAttended: '<i class="fas fa-check-circle me-2"></i>Katıldım',
+            kpiAttendedLabel: 'tamamlanan etkinlik',
+            upcomingTitle: 'Yaklaşan Etkinlikler',
+            browseBtn: '<i class="fas fa-search me-2"></i>Tüm Etkinliklere Göz At (Portal)',
+            tipsTitle: 'Hızlı İpuçları',
+            tipsContent: '• Etkinlikleri yer imi olarak kaydedin<br>• Rapor indirmek için kaydolun<br>• Raporlar yazdırılabilir PDF olarak açılır',
+            browseTitle: 'Etkinliklere Göz At',
+            portalTotal: 'Portal toplamı: <?php echo $total_events; ?>',
+            reportsTitle: 'Raporlarım ve Kayıtlarım',
+            savedTitle: 'Kayıtlı Etkinlikler',
+            noRegistered: 'Henüz kayıtlı etkinlik yok. Rapor indirmek için kaydolun.',
+            noSaved: 'Henüz kayıtlı etkinlik yok.',
+            todayBadge: 'BUGÜN',
+            completedBadge: 'TAMAMLANDI',
+            save: 'Kaydet',
+            saved: 'Kaydedildi',
+            register: 'Kaydol',
+            registered: 'Kayıtlı'
+        }
+    };
+
+    const sdgTranslations = {
+        tr: {
+            'SDG 1: No Poverty': 'SKH 1: Yoksulluğa Son',
+            'SDG 2: Zero Hunger': 'SKH 2: Açlığa Son',
+            'SDG 3: Good Health and Well-being': 'SKH 3: Sağlık ve Kaliteli Yaşam',
+            'SDG 4: Quality Education': 'SKH 4: Nitelikli Eğitim',
+            'SDG 5: Gender Equality': 'SKH 5: Toplumsal Cinsiyet Eşitliği',
+            'SDG 6: Clean Water and Sanitation': 'SKH 6: Temiz Su ve Sanitasyon',
+            'SDG 7: Affordable and Clean Energy': 'SKH 7: Erişilebilir ve Temiz Enerji',
+            'SDG 8: Decent Work and Economic Growth': 'SKH 8: İnsana Yakışır İş ve Ekonomik Büyüme',
+            'SDG 9: Industry, Innovation and Infrastructure': 'SKH 9: Sanayi, Yenilikçilik ve Altyapı',
+            'SDG 10: Reduced Inequalities': 'SKH 10: Eşitsizliklerin Azaltılması',
+            'SDG 11: Sustainable Cities and Communities': 'SKH 11: Sürdürülebilir Şehirler ve Topluluklar',
+            'SDG 12: Responsible Consumption and Production': 'SKH 12: Sorumlu Üretim ve Tüketim',
+            'SDG 13: Climate Action': 'SKH 13: İklim Eylemi',
+            'SDG 14: Life Below Water': 'SKH 14: Suda Yaşam',
+            'SDG 15: Life on Land': 'SKH 15: Karasal Yaşam',
+            'SDG 16: Peace, Justice and Strong Institutions': 'SKH 16: Barış, Adalet ve Güçlü Kurumlar',
+            'SDG 17: Partnerships for the Goals': 'SKH 17: Amaçlar İçin Ortaklıklar'
+        }
+    };
+
+    const theTranslations = {
+        tr: {
+            'Teaching': 'Öğretim',
+            'Research': 'Araştırma',
+            'Citations Impact': 'Atıf Etkisi',
+            'International Outlook': 'Uluslararası Görünüm',
+            'Industry Income / Collaboration': 'Sektör Geliri / İşbirliği'
+        }
+    };
+
+    function applyTranslations(lang) {
+        const dict = translations[lang] || translations.en;
+        const targets = {
+            'nav-home': 'navHome',
+            'nav-events': 'navEvents',
+            'nav-reports': 'navReports',
+            'nav-logout': 'navLogout',
+            'hero-title': 'heroTitle',
+            'hero-subtitle': 'heroSubtitle',
+            'kpi-user': 'kpiUser',
+            'kpi-registered': 'kpiRegistered',
+            'kpi-registered-label': 'kpiRegisteredLabel',
+            'kpi-saved': 'kpiSaved',
+            'kpi-saved-label': 'kpiSavedLabel',
+            'kpi-attended': 'kpiAttended',
+            'kpi-attended-label': 'kpiAttendedLabel',
+            'upcoming-title': 'upcomingTitle',
+            'browse-btn': 'browseBtn',
+            'tips-title': 'tipsTitle',
+            'tips-content': 'tipsContent',
+            'browse-title': 'browseTitle',
+            'portal-total': 'portalTotal',
+            'reports-title': 'reportsTitle',
+            'saved-title': 'savedTitle',
+            'no-registered': 'noRegistered',
+            'no-saved': 'noSaved'
+        };
+        Object.entries(targets).forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            if (el && dict[key]) el.innerHTML = dict[key];
+        });
+
+        // Translate SDG/THE tags
+        document.querySelectorAll('.event-sdg').forEach(tag => {
+            const original = tag.getAttribute('data-original') || tag.textContent;
+            if (!tag.getAttribute('data-original')) tag.setAttribute('data-original', original);
+            tag.textContent = lang === 'tr' ? (sdgTranslations.tr[original] || original) : original;
+        });
+        document.querySelectorAll('.event-the').forEach(tag => {
+            const iconHtml = '<i class="fas fa-university me-1"></i>';
+            const textNode = tag.childNodes[tag.childNodes.length - 1];
+            const original = tag.getAttribute('data-original') || textNode.textContent;
+            if (!tag.getAttribute('data-original')) tag.setAttribute('data-original', original);
+            const translated = lang === 'tr' ? (theTranslations.tr[original] || original) : original;
+            tag.innerHTML = iconHtml + translated;
+        });
+
+        // Translate badges
+        document.querySelectorAll('.today-badge .badge-text').forEach(el => {
+            el.textContent = dict.todayBadge;
+        });
+        document.querySelectorAll('.expired-badge .badge-text').forEach(el => {
+            el.textContent = dict.completedBadge;
+        });
+
+        // Translate buttons
+        document.querySelectorAll('.btn-save-text').forEach(btn => {
+            const isSaved = btn.parentElement.classList.contains('btn-secondary');
+            btn.textContent = isSaved ? dict.saved : dict.save;
+        });
+        document.querySelectorAll('.btn-register-text').forEach(btn => {
+            const isRegistered = btn.parentElement.classList.contains('btn-primary');
+            btn.textContent = isRegistered ? dict.registered : dict.register;
+        });
+
+        langToggleBtn.textContent = lang === 'en' ? 'TR' : 'EN';
+    }
+
+    async function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        applyTranslations(lang);
+        
+        // Fetch and render events for the selected language
+        const events = await fetchEventsForLang(lang);
+        allEventsData = events;
+        renderUpcomingSidebar(events);
+        renderBrowseEvents(events);
+    }
+
+    langToggleBtn.addEventListener('click', async () => {
+        const nextLang = currentLang === 'en' ? 'tr' : 'en';
+        await setLanguage(nextLang);
+    });
+
+    // Initialize with cached or default language
+    (async () => {
+        await setLanguage(currentLang);
+    })();
 
     // --- 2. DARK MODE ---
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -479,6 +780,23 @@ $upcoming = array_slice($sorted, 0, 3);
             icon.classList.add('fa-sun');
         }
     });
+
+    // Hero reveal and navbar scroll shadow
+    const heroSection = document.querySelector('.hero-section');
+    if (heroSection) {
+        setTimeout(() => heroSection.classList.add('show'), 150);
+    }
+    const navbarEl = document.querySelector('.navbar');
+    const handleNavScroll = () => {
+        if (!navbarEl) return;
+        if (window.scrollY > 10) {
+            navbarEl.classList.add('navbar-scrolled');
+        } else {
+            navbarEl.classList.remove('navbar-scrolled');
+        }
+    };
+    window.addEventListener('scroll', handleNavScroll);
+    handleNavScroll();
 
     // --- 3. DETAILED PDF GENERATION (Copied from Index.php) ---
     function generatePDF(eventId) {

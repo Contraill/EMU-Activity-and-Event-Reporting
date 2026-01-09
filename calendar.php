@@ -50,6 +50,12 @@ if (file_exists($json_file)) {
             --cal-hover: #2c2c2c;
         }
 
+        [data-theme="dark"] .modal-content { background-color: #1e1e1e; color: #e0e0e0; }
+        [data-theme="dark"] .modal-body { background-color: #1e1e1e; }
+        [data-theme="dark"] .input-group-text { background-color: #333; border-color: #444; color: #aaa; }
+        [data-theme="dark"] .form-control { background-color: #333; border-color: #444; color: #fff; }
+        [data-theme="dark"] .text-muted { color: #aaa !important; }
+
         body {
             background-color: var(--bg-body);
             font-family: 'Open Sans', sans-serif;
@@ -87,6 +93,11 @@ if (file_exists($json_file)) {
             cursor: pointer;
         }
 
+        .btn, .btn:focus { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(0,0,0,0.12); }
+        .calendar-container, .event-list-item { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .calendar-container:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.12); }
+
         .hero-section {
             background: linear-gradient(rgba(0, 33, 71, 0.9), rgba(0, 33, 71, 0.8)), url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Eastern_Mediterranean_University_Rectorate_Building.jpg/1200px-Eastern_Mediterranean_University_Rectorate_Building.jpg');
             background-position: center;
@@ -95,6 +106,10 @@ if (file_exists($json_file)) {
             padding: 60px 0;
             border-bottom: 5px solid var(--emu-orange);
         }
+
+        .hero-fade { opacity: 0; transform: translateY(8px); transition: all 0.6s ease; }
+        .hero-fade.show { opacity: 1; transform: translateY(0); }
+        .navbar-scrolled { box-shadow: 0 4px 18px rgba(0,0,0,0.18); background-color: #001a38; transition: box-shadow 0.3s ease, background-color 0.3s ease; }
 
         /* --- INTERACTIVE CALENDAR STYLES --- */
         .calendar-container {
@@ -193,6 +208,7 @@ if (file_exists($json_file)) {
             transform: translateX(5px);
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
+        .event-list-item small { color: var(--text-muted) !important; }
 
         footer {
             background-color: #1a1a1a;
@@ -201,6 +217,8 @@ if (file_exists($json_file)) {
             margin-top: 60px;
             border-top: 4px solid var(--emu-orange);
         }
+
+        html { scroll-padding-top: 100px; }
     </style>
 </head>
 <body>
@@ -217,12 +235,14 @@ if (file_exists($json_file)) {
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="index.php"> <i class="fas fa-home me-1"></i> Home</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="#"><i class="far fa-calendar-alt me-1"></i> Calendar</a></li>
+                    <li class="nav-item"><a class="nav-link" id="nav-home" href="index.php"> <i class="fas fa-home me-1"></i> Home</a></li>
                     <li class="nav-item">
-                        <a href="#" onclick="alert('System Message: Admin Login Panel is under construction.')" class="btn btn-login btn-sm px-4 rounded-pill">
+                        <a id="nav-login" href="#" data-bs-toggle="modal" data-bs-target="#loginModal" class="btn btn-login btn-sm px-4 rounded-pill">
                             <i class="fas fa-lock me-2"></i>Staff Login
                         </a>
+                    </li>
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm ms-2" id="lang-toggle" type="button">TR</button>
                     </li>
                     <li class="nav-item">
                         <button class="btn-theme-toggle" id="theme-toggle" title="Toggle Dark/Light Mode">
@@ -234,10 +254,10 @@ if (file_exists($json_file)) {
         </div>
     </nav>
 
-    <div class="hero-section text-center">
+    <div class="hero-section text-center hero-fade">
         <div class="container">
-            <h1 class="display-5 fw-bold mb-3">Event Calendar</h1>
-            <p class="lead mb-0" style="opacity: 0.9;">
+            <h1 class="display-5 fw-bold mb-3" id="hero-title">Event Calendar</h1>
+            <p class="lead mb-0" style="opacity: 0.9;" id="hero-subtitle">
                 View upcoming university activities, workshops, and deadlines.
             </p>
         </div>
@@ -252,14 +272,12 @@ if (file_exists($json_file)) {
                         <button class="btn-nav" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
                         <div class="text-center">
                             <h4 id="monthYearDisplay">Loading...</h4>
-                            <small onclick="jumpToToday()" style="cursor:pointer; text-decoration:underline; opacity:0.8;">Go to Today</small>
+                            <small id="goto-today" onclick="jumpToToday()" style="cursor:pointer; text-decoration:underline; opacity:0.8;">Go to Today</small>
                         </div>
                         <button class="btn-nav" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
                     </div>
 
-                    <div class="weekdays">
-                        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
-                    </div>
+                    <div class="weekdays" id="weekdays-row"></div>
 
                     <div class="days" id="daysGrid">
                         </div>
@@ -268,25 +286,11 @@ if (file_exists($json_file)) {
 
             <div class="col-lg-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="m-0" style="color: var(--text-main);">Events</h5>
+                    <h5 class="m-0" style="color: var(--text-main);" id="events-heading">Events</h5>
                     <span class="badge bg-secondary" id="selectedDateLabel">All Upcoming</span>
                 </div>
                 
-                <div id="eventListContainer">
-                    <?php if(empty($events)): ?>
-                        <div class="alert alert-warning">No events found in database.</div>
-                    <?php else: ?>
-                        <?php foreach($events as $event): ?>
-                        <div class="event-list-item rounded">
-                            <h6 class="fw-bold mb-1" style="color: var(--text-main);"><?php echo $event['title']; ?></h6>
-                            <small class="d-block mb-1" style="color: var(--text-muted);">
-                                <i class="far fa-clock me-1"></i> <?php echo date('M d, Y', strtotime($event['date'])); ?>
-                            </small>
-                            <span class="badge bg-success" style="font-size: 0.7rem;"><?php echo $event['sdg']; ?></span>
-                        </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
+                <div id="eventListContainer"></div>
             </div>
         </div>
     </div>
@@ -298,105 +302,269 @@ if (file_exists($json_file)) {
         </div>
     </footer>
 
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: var(--emu-dark-blue); color: white;">
+                    <h5 class="modal-title" id="login-modal-title"><i class="fas fa-user-shield me-2"></i>Staff Login</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3" id="login-desc">Please enter your institutional credentials.</p>
+                    <div class="mb-3">
+                        <label for="username" class="form-label fw-bold small" id="username-label">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            <input type="text" class="form-control" id="username">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label fw-bold small" id="password-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control" id="password" placeholder="******">
+                        </div>
+                    </div>
+                    
+                    <div id="login-error" class="alert alert-danger py-2 small" style="display:none;">
+                        <i class="fas fa-exclamation-circle me-1"></i> <span id="login-error-text">Invalid username or password.</span>
+                    </div>
+
+                    <button type="button" onclick="performLogin()" class="btn btn-primary w-100" style="background-color: var(--emu-orange); border:none;" id="login-btn">
+                        Login
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 1. Pass PHP Data to JS
-        const eventsData = <?php echo json_encode($events); ?>;
+        // 1. Data + Localization Setup
+        let eventsData = <?php echo json_encode($events); ?>;
+        let dataCache = { en: eventsData, tr: null };
+        let selectedDate = null;
+        const today = new Date();
+        let currYear = today.getFullYear();
+        let currMonth = today.getMonth();
+        let currentLang = localStorage.getItem('lang') || 'en';
 
-        const date = new Date();
-        let currYear = date.getFullYear();
-        let currMonth = date.getMonth(); // 0-11
+        const monthYearDisplay = document.getElementById('monthYearDisplay');
+        const daysGrid = document.getElementById('daysGrid');
+        const prevBtn = document.getElementById('prevMonth');
+        const nextBtn = document.getElementById('nextMonth');
+        const weekdaysRow = document.getElementById('weekdays-row');
+        const langToggleBtn = document.getElementById('lang-toggle');
 
-        const monthYearDisplay = document.getElementById("monthYearDisplay");
-        const daysGrid = document.getElementById("daysGrid");
-        const prevBtn = document.getElementById("prevMonth");
-        const nextBtn = document.getElementById("nextMonth");
-
-        const months = ["January", "February", "March", "April", "May", "June", "July",
-                        "August", "September", "October", "November", "December"];
-
-        // 2. Render Calendar Function
-        const renderCalendar = () => {
-            let firstDayOfMonth = new Date(currYear, currMonth, 1).getDay(); // 0(Sun) - 6(Sat)
-            // Adjust for Mon-Sun week start (Standard in TR/EU)
-            // JS returns Sun=0, Mon=1. We want Mon=0, Sun=6.
-            firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
-
-            let lastDateOfMonth = new Date(currYear, currMonth + 1, 0).getDate(); // 30, 31 etc.
-            let lastDayOfMonth = new Date(currYear, currMonth, lastDateOfMonth).getDay();
-            let lastDateOfLastMonth = new Date(currYear, currMonth, 0).getDate();
-            
-            let liTag = "";
-
-            // Show previous month's last days
-            for (let i = firstDayOfMonth; i > 0; i--) {
-                liTag += `<div class="prev-date">${lastDateOfLastMonth - i + 1}</div>`;
+        const translations = {
+            en: {
+                navHome: '<i class="fas fa-home me-1"></i> Home',
+                navLogin: '<i class="fas fa-lock me-2"></i>Staff Login',
+                heroTitle: 'Event Calendar',
+                heroSubtitle: 'View upcoming university activities, workshops, and deadlines.',
+                gotoToday: 'Go to Today',
+                eventsHeading: 'Events',
+                allUpcoming: 'All Upcoming',
+                noEventsDb: 'No events found in database.',
+                noEventsDay: 'No events on this day.',
+                todayBadge: 'TODAY',
+                endedBadge: 'ENDED',
+                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Staff Login',
+                loginDesc: 'Please enter your institutional credentials.',
+                usernameLabel: 'Username',
+                passwordLabel: 'Password',
+                loginError: 'Invalid username or password.',
+                loginBtn: 'Login'
+            },
+            tr: {
+                navHome: '<i class="fas fa-home me-1"></i> Ana Sayfa',
+                navLogin: '<i class="fas fa-lock me-2"></i>Personel Girişi',
+                heroTitle: 'Etkinlik Takvimi',
+                heroSubtitle: 'Yaklaşan üniversite etkinliklerini, atölyeleri ve son tarihleri görüntüleyin.',
+                gotoToday: 'Bugüne Git',
+                eventsHeading: 'Etkinlikler',
+                allUpcoming: 'Tüm Yaklaşanlar',
+                noEventsDb: 'Veritabanında etkinlik bulunamadı.',
+                noEventsDay: 'Bu günde etkinlik yok.',
+                todayBadge: 'BUGÜN',
+                endedBadge: 'BİTTİ',
+                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Personel Girişi',
+                loginDesc: 'Lütfen kurum hesabınızla giriş yapın.',
+                usernameLabel: 'Kullanıcı Adı',
+                passwordLabel: 'Şifre',
+                loginError: 'Geçersiz kullanıcı adı veya şifre.',
+                loginBtn: 'Giriş Yap'
             }
+        };
 
-            // Show current month's days
-            for (let i = 1; i <= lastDateOfMonth; i++) {
-                // Check if today
-                let isToday = i === date.getDate() && currMonth === new Date().getMonth() && 
-                              currYear === new Date().getFullYear() ? "today" : "";
-                
-                // Format date string YYYY-MM-DD to match JSON
-                let monthStr = (currMonth + 1).toString().padStart(2, '0');
-                let dayStr = i.toString().padStart(2, '0');
-                let dateString = `${currYear}-${monthStr}-${dayStr}`;
-
-                // Check for Events
-                let hasEvent = eventsData.some(e => e.date === dateString) ? "has-event" : "";
-
-                liTag += `<div class="${isToday} ${hasEvent}" onclick="filterEventsByDate('${dateString}')">${i}</div>`;
+        const sdgTranslations = {
+            tr: {
+                'SDG 1: No Poverty': 'SKH 1: Yoksulluğa Son',
+                'SDG 2: Zero Hunger': 'SKH 2: Açlığa Son',
+                'SDG 3: Good Health and Well-being': 'SKH 3: Sağlık ve Kaliteli Yaşam',
+                'SDG 4: Quality Education': 'SKH 4: Nitelikli Eğitim',
+                'SDG 5: Gender Equality': 'SKH 5: Toplumsal Cinsiyet Eşitliği',
+                'SDG 6: Clean Water and Sanitation': 'SKH 6: Temiz Su ve Sanitasyon',
+                'SDG 7: Affordable and Clean Energy': 'SKH 7: Erişilebilir ve Temiz Enerji',
+                'SDG 8: Decent Work and Economic Growth': 'SKH 8: İnsana Yakışır İş ve Ekonomik Büyüme',
+                'SDG 9: Industry, Innovation and Infrastructure': 'SKH 9: Sanayi, Yenilikçilik ve Altyapı',
+                'SDG 10: Reduced Inequalities': 'SKH 10: Eşitsizliklerin Azaltılması',
+                'SDG 11: Sustainable Cities and Communities': 'SKH 11: Sürdürülebilir Şehirler ve Topluluklar',
+                'SDG 12: Responsible Consumption and Production': 'SKH 12: Sorumlu Üretim ve Tüketim',
+                'SDG 13: Climate Action': 'SKH 13: İklim Eylemi',
+                'SDG 14: Life Below Water': 'SKH 14: Suda Yaşam',
+                'SDG 15: Life on Land': 'SKH 15: Karasal Yaşam',
+                'SDG 16: Peace, Justice and Strong Institutions': 'SKH 16: Barış, Adalet ve Güçlü Kurumlar',
+                'SDG 17: Partnerships for the Goals': 'SKH 17: Amaçlar İçin Ortaklıklar'
             }
+        };
 
-            // Show next month's first days to fill grid
-            // Calculate how many cells needed to complete the grid (usually 35 or 42 cells)
-            // But simple fill:
-            let remainingCells = 42 - (firstDayOfMonth + lastDateOfMonth); 
-            // Usually simpler just to fill until end of week row
-            
-            // Just basic next days filler
-            for (let i = 1; i <= 6; i++) {
-                 // Logic to stop creating rows can be complex, keeping it simple:
-                 // if grid isn't full looking, add some next days.
-                 // For this prototype, we just stop here or add a few if row is empty.
-            }
+        const monthNames = {
+            en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+            tr: ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+        };
+        const weekdayNames = {
+            en: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+            tr: ['Pzt','Sal','Çar','Per','Cum','Cts','Paz']
+        };
 
-            monthYearDisplay.innerText = `${months[currMonth]} ${currYear}`;
-            daysGrid.innerHTML = liTag;
+        function applyTranslations(lang) {
+            const dict = translations[lang] || translations.en;
+            const targets = {
+                'nav-home': 'navHome',
+                'nav-login': 'navLogin',
+                'hero-title': 'heroTitle',
+                'hero-subtitle': 'heroSubtitle',
+                'goto-today': 'gotoToday',
+                'events-heading': 'eventsHeading',
+                'login-modal-title': 'loginModalTitle',
+                'login-desc': 'loginDesc',
+                'username-label': 'usernameLabel',
+                'password-label': 'passwordLabel',
+                'login-error-text': 'loginError',
+                'login-btn': 'loginBtn'
+            };
+            Object.entries(targets).forEach(([id, key]) => {
+                const el = document.getElementById(id);
+                if (el && dict[key]) el.innerHTML = dict[key];
+            });
+            const selLabel = document.getElementById('selectedDateLabel');
+            if (selLabel && !selectedDate) selLabel.innerText = dict.allUpcoming;
+            langToggleBtn.textContent = lang === 'en' ? 'TR' : 'EN';
+            renderWeekdays(lang);
+            renderCalendar();
         }
 
-        // 3. Navigation Logic
-        prevBtn.addEventListener("click", () => {
-            currMonth--;
-            if(currMonth < 0) {
-                currMonth = 11;
-                currYear--;
+        function sortEvents(events) {
+            const now = Date.now();
+            const todayStart = new Date(new Date().toDateString()).getTime();
+            const todayEnd = todayStart + 86400000;
+            return [...events].sort((a, b) => {
+                const aTime = new Date(`${a.date} ${a.time}`).getTime();
+                const bTime = new Date(`${b.date} ${b.time}`).getTime();
+                const aDay = new Date(a.date).setHours(0,0,0,0);
+                const bDay = new Date(b.date).setHours(0,0,0,0);
+
+                const isTodayA = aDay >= todayStart && aDay < todayEnd && aTime >= now;
+                const isTodayB = bDay >= todayStart && bDay < todayEnd && bTime >= now;
+                const isExpiredA = aTime < now;
+                const isExpiredB = bTime < now;
+
+                if (isTodayA && !isTodayB) return -1;
+                if (!isTodayA && isTodayB) return 1;
+                if (isTodayA && isTodayB) return aTime - bTime;
+                if (!isExpiredA && !isExpiredB) return aDay - bDay;
+                if (isExpiredA && isExpiredB) return bDay - aDay;
+                return isExpiredA ? 1 : -1;
+            });
+        }
+
+        eventsData = sortEvents(eventsData);
+        dataCache.en = eventsData;
+
+        function fetchEventsForLang(lang) {
+            if (dataCache[lang]) return Promise.resolve(dataCache[lang]);
+            const file = lang === 'tr' ? 'eventstr.json' : 'events.json';
+            return fetch(file)
+                .then(r => r.ok ? r.json() : [])
+                .then(data => {
+                    const list = Array.isArray(data) ? sortEvents(data) : [];
+                    dataCache[lang] = list;
+                    return list;
+                })
+                .catch(() => dataCache[lang] || []);
+        }
+
+        function renderWeekdays(lang) {
+            const names = weekdayNames[lang] || weekdayNames.en;
+            weekdaysRow.innerHTML = names.map(d => `<div>${d}</div>`).join('');
+        }
+
+        function isEventExpired(ev) {
+            const eventTime = new Date(`${ev.date} ${ev.time}`).getTime();
+            return eventTime < Date.now();
+        }
+
+        function isEventTodayUpcoming(ev) {
+            const now = Date.now();
+            const eventTime = new Date(`${ev.date} ${ev.time}`).getTime();
+            const eventDay = new Date(ev.date).setHours(0, 0, 0, 0);
+            const todayDay = new Date().setHours(0, 0, 0, 0);
+            return eventDay === todayDay && eventTime >= now;
+        }
+
+        function getUpcomingEvents() {
+            return (eventsData || []).filter(ev => !isEventExpired(ev));
+        }
+
+        function renderCalendar() {
+            let firstDayOfMonth = new Date(currYear, currMonth, 1).getDay();
+            firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; // Mon-first
+            const lastDateOfMonth = new Date(currYear, currMonth + 1, 0).getDate();
+            const lastDateOfLastMonth = new Date(currYear, currMonth, 0).getDate();
+            const locale = currentLang === 'tr' ? 'tr-TR' : 'en-US';
+
+            let html = '';
+            for (let i = firstDayOfMonth; i > 0; i--) {
+                html += `<div class="prev-date">${lastDateOfLastMonth - i + 1}</div>`;
             }
+            for (let i = 1; i <= lastDateOfMonth; i++) {
+                const isToday = i === today.getDate() && currMonth === today.getMonth() && currYear === today.getFullYear() ? 'today' : '';
+                const monthStr = (currMonth + 1).toString().padStart(2, '0');
+                const dayStr = i.toString().padStart(2, '0');
+                const dateString = `${currYear}-${monthStr}-${dayStr}`;
+                const hasEvent = eventsData.some(e => e.date === dateString) ? 'has-event' : '';
+                html += `<div class="${isToday} ${hasEvent}" onclick="filterEventsByDate('${dateString}')">${i}</div>`;
+            }
+            daysGrid.innerHTML = html;
+            const monthName = (monthNames[currentLang] || monthNames.en)[currMonth];
+            monthYearDisplay.innerText = `${monthName} ${currYear}`;
+        }
+
+        prevBtn.addEventListener('click', () => {
+            currMonth--;
+            if (currMonth < 0) { currMonth = 11; currYear--; }
             renderCalendar();
         });
-
-        nextBtn.addEventListener("click", () => {
+        nextBtn.addEventListener('click', () => {
             currMonth++;
-            if(currMonth > 11) {
-                currMonth = 0;
-                currYear++;
-            }
+            if (currMonth > 11) { currMonth = 0; currYear++; }
             renderCalendar();
         });
 
         function jumpToToday() {
-            currYear = new Date().getFullYear();
-            currMonth = new Date().getMonth();
+            currYear = today.getFullYear();
+            currMonth = today.getMonth();
+            selectedDate = null;
+            const dict = translations[currentLang] || translations.en;
+            document.getElementById('selectedDateLabel').innerText = dict.allUpcoming;
             renderCalendar();
-            document.getElementById('selectedDateLabel').innerText = "All Upcoming";
-            renderEventList(eventsData); // Reset list
+            renderEventList(getUpcomingEvents());
         }
 
-        // 4. Click Day -> Filter List
         function filterEventsByDate(dateStr) {
+            selectedDate = dateStr;
             const filteredEvents = eventsData.filter(e => e.date === dateStr);
             document.getElementById('selectedDateLabel').innerText = dateStr;
             renderEventList(filteredEvents);
@@ -404,32 +572,75 @@ if (file_exists($json_file)) {
 
         function renderEventList(data) {
             const container = document.getElementById('eventListContainer');
-            if (data.length === 0) {
-                container.innerHTML = '<div class="alert alert-light border">No events on this day.</div>';
+            const dict = translations[currentLang] || translations.en;
+            if (!data || data.length === 0) {
+                const fallbackMsg = (eventsData || []).length === 0 && !selectedDate ? dict.noEventsDb : dict.noEventsDay;
+                container.innerHTML = `<div class="alert alert-light border">${fallbackMsg}</div>`;
                 return;
             }
-
-            let html = "";
-            data.forEach(event => {
-                html += `
-                <div class="event-list-item rounded">
-                    <h6 class="fw-bold mb-1" style="color: var(--text-main);">${event.title}</h6>
-                    <small class="d-block mb-1" style="color: var(--text-muted);">
-                        <i class="far fa-clock me-1"></i> ${event.time}
-                    </small>
-                    <span class="badge bg-success" style="font-size: 0.7rem;">${event.sdg}</span>
-                    <div class="mt-2">
-                        <small class="text-muted" style="font-size:0.75rem;">${event.organizer}</small>
-                    </div>
-                </div>`;
-            });
-            container.innerHTML = html;
+            const locale = currentLang === 'tr' ? 'tr-TR' : 'en-US';
+            const markup = data.map(event => {
+                const dateStr = new Date(event.date).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
+                const sdg = currentLang === 'tr' ? (sdgTranslations.tr[event.sdg] || event.sdg) : event.sdg;
+                const badge = isEventTodayUpcoming(event)
+                    ? `<span class="badge bg-warning text-dark ms-2" style="font-size:0.65rem;">${dict.todayBadge}</span>`
+                    : (isEventExpired(event) ? `<span class="badge bg-secondary ms-2" style="font-size:0.65rem;">${dict.endedBadge}</span>` : '');
+                return `
+                    <div class="event-list-item rounded">
+                        <h6 class="fw-bold mb-1" style="color: var(--text-main);">${event.title}</h6>
+                        <small class="d-block mb-1" style="color: var(--text-muted);">
+                            <i class="far fa-clock me-1"></i> ${dateStr} | ${event.time}
+                        </small>
+                        <span class="badge bg-success" style="font-size: 0.7rem;">${sdg}</span>${badge}
+                        <div class="mt-2">
+                            <small class="text-muted" style="font-size:0.75rem;">${event.organizer}</small>
+                        </div>
+                    </div>`;
+            }).join('');
+            container.innerHTML = markup;
         }
 
-        // Initial Render
-        renderCalendar();
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('lang', lang);
+            fetchEventsForLang(lang).then(data => {
+                eventsData = data;
+                selectedDate = null;
+                applyTranslations(lang);
+                renderEventList(getUpcomingEvents());
+            }).catch(() => {
+                applyTranslations(lang);
+                renderEventList(getUpcomingEvents());
+            });
+        }
 
-        // --- Dark Mode Logic (Shared) ---
+        langToggleBtn.addEventListener('click', () => {
+            const nextLang = currentLang === 'en' ? 'tr' : 'en';
+            setLanguage(nextLang);
+        });
+
+        // --- Login Logic ---
+        function performLogin() {
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+            const errorBox = document.getElementById('login-error');
+
+            if (u === 'admin' && p === 'admin') {
+                window.location.href = 'admin_dashboard.php';
+            } else if (u === 'user' && p === 'user') {
+                window.location.href = 'user_dashboard.php';
+            } else {
+                errorBox.style.display = 'block';
+                const modalContent = document.querySelector('.modal-content');
+                modalContent.classList.add('border-danger');
+                setTimeout(() => { modalContent.classList.remove('border-danger'); }, 500);
+            }
+        }
+        document.getElementById('password').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') performLogin();
+        });
+
+        // --- Dark Mode Logic ---
         const themeToggleBtn = document.getElementById('theme-toggle');
         const icon = themeToggleBtn.querySelector('i');
         const currentTheme = localStorage.getItem('theme');
@@ -454,6 +665,33 @@ if (file_exists($json_file)) {
                 icon.classList.add('fa-sun');
             }
         });
+
+        // Hero reveal and navbar scroll shadow
+        const heroSection = document.querySelector('.hero-section');
+        if (heroSection) {
+            setTimeout(() => heroSection.classList.add('show'), 150);
+        }
+        const navbarEl = document.querySelector('.navbar');
+        const handleNavScroll = () => {
+            if (!navbarEl) return;
+            if (window.scrollY > 10) {
+                navbarEl.classList.add('navbar-scrolled');
+            } else {
+                navbarEl.classList.remove('navbar-scrolled');
+            }
+        };
+        window.addEventListener('scroll', handleNavScroll);
+        handleNavScroll();
+
+        // Initial load
+        (async function init() {
+            eventsData = await fetchEventsForLang(currentLang);
+            dataCache[currentLang] = eventsData;
+            renderWeekdays(currentLang);
+            applyTranslations(currentLang);
+            renderCalendar();
+            renderEventList(getUpcomingEvents());
+        })();
     </script>
 </body>
 </html>
