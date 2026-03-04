@@ -1,4 +1,4 @@
-# EMU Activity & Event Reporting Portal
+# EMU Activity & Event Reporting Portal - learning project
 
 A comprehensive web-based system for managing, tracking, and reporting university activities and events aligned with UN Sustainable Development Goals (SDGs), THE Impact Rankings, and QS Stars evaluation criteria.
 
