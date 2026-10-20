@@ -2,9 +2,31 @@
 
 A comprehensive web-based system for managing, tracking, and reporting university activities and events aligned with UN Sustainable Development Goals (SDGs), THE Impact Rankings, and QS Stars evaluation criteria.
 
+> ⚠️ **University Course Project, not an official EMU service.** This repository is a prototype built for a Software Engineering course at Eastern Mediterranean University. It has **no real authentication**, stores data in plain JSON files, and ships with **sample events only**. Do not deploy it publicly or load real user data into it.
+
+## 🎓 Course Project Scope
+
+The project was developed as a course assignment to model how a university could collect activity and event data for sustainability and ranking reports. The scope of the course was:
+
+- Designing the user flows (visitor, user, admin) and the data model for an event reporting tool
+- Building a working PHP prototype with bilingual (EN/TR) content
+- Demonstrating filtering, reporting and export features on sample data
+
+Out of scope for the course: real authentication, a database, access control, hosting and any handling of real personal data.
+
 ## 📋 Overview
 
-This portal enables Eastern Mediterranean University to systematically document activities, track SDG contributions, and generate compliance reports for international accreditation standards.
+The portal shows how a university could document activities, tag them with sustainability and ranking criteria, and turn them into reports.
+
+### How SDG / THE / QS reporting works
+
+Each event is tagged with one or more values from three lists:
+
+- **SDG**: the UN Sustainable Development Goals (SDG 1 to SDG 17) the event contributes to
+- **THE**: the Times Higher Education Impact Rankings area it supports (Teaching, Research, International Outlook, ...)
+- **QS**: the QS Stars criterion it supports (Teaching & Learning, Research Quality, Social Responsibility, ...)
+
+These tags drive the filters on the public portal, the coverage snapshot on the admin dashboard (how many events touch each SDG, THE and QS area) and the CSV / PDF exports. The idea is that the reporting office can pull an evidence list per goal or criterion when preparing a ranking submission. The tag lists are simplified for the course and are not the official ranking methodologies.
 
 **🌍 Bilingual Support**: Full English/Turkish language switching with separate data sources for localized content.
 
@@ -15,7 +37,7 @@ This portal enables Eastern Mediterranean University to systematically document 
 - 🔍 Advanced filtering (SDGs, THE criteria, QS criteria)
 - � **EN/TR language toggle** with automatic content switching
 - 🌓 Dark/Light theme toggle with localStorage persistence
-- 🔐 Staff login modal with role-based redirects
+- 🔐 Demo login modal that redirects to the user or admin page (client-side only, not real authentication)
 - 📄 Client-side PDF report generation (jsPDF)
 - ✨ **Smooth animations** (hero fade-in, navbar scroll shadow, hover effects)
 - 🏷️ **Event badges** (TODAY/COMPLETED) with time-based logic
@@ -63,7 +85,7 @@ This portal enables Eastern Mediterranean University to systematically document 
 - **Icons**: Font Awesome 6.4.0
 - **Fonts**: Google Fonts (Merriweather, Open Sans)
 - **PDF Generation**: jsPDF 2.5.1 + autoTable plugin
-- **Data Storage**: Dual JSON files ([events.json](events.json) for English, [eventstr.json](eventstr.json) for Turkish)
+- **Data Storage**: Dual JSON files ([events.json](events.json) for English, [eventstr.json](eventstr.json) for Turkish). This is a deliberate prototype choice: no database setup is needed to run the course demo, and the data is easy to read and reset. It has no locking, no validation layer and no access control, so it is not suitable for real data.
 - **State Management**: localStorage for theme and language preferences
 
 ## 📂 Project Structure
@@ -108,9 +130,21 @@ EMU-Activity-and-Event-Reporting/
    http://localhost/EMU-Activity-and-Event-Reporting/
    ```
 
-5. **Default login credentials**:
+5. **Demo login** (for the prototype only):
    - **Admin**: `admin` / `admin`
    - **User**: `user` / `user`
+
+   These values are checked in browser JavaScript ([index.php](index.php)) and only decide which page to open. They do not protect anything: the dashboards themselves do not check who you are. To limit the damage, [admin_dashboard.php](admin_dashboard.php) refuses any request that does not come from `localhost`.
+
+## 🖼️ Screenshots
+
+<!-- TODO: add screenshots to images/screenshots/ and uncomment.
+![User dashboard](images/screenshots/user_dashboard.png)
+![Admin dashboard](images/screenshots/admin_dashboard.png)
+![Calendar](images/screenshots/calendar.png)
+-->
+
+_Screenshots of the user, admin and calendar screens will be added here._
 
 ## 📖 Usage Guide
 
@@ -220,7 +254,13 @@ $qs_list = ["Teaching & Learning", ...];
 
 ## 🔒 Security Notes
 
-⚠️ **This is a prototype system**. For production use:
+⚠️ **This is a prototype system with no real security.**
+
+- **Login is client-side only.** The username/password check runs in the browser and can be skipped by opening the page URL directly. It is not authentication.
+- **The admin panel has no server-side access control.** The only guard is a localhost check in [admin_dashboard.php](admin_dashboard.php). Do not put the app on a public server, and do not run it behind a reverse proxy (every request would look local).
+- **Data is sample data.** The events in the JSON files are examples for the course demo. Do not store real names, emails or other personal data.
+
+To turn this into a real service you would at least need to:
 
 1. Replace hardcoded login with database authentication
 2. Implement password hashing (bcrypt/Argon2)
@@ -233,8 +273,10 @@ $qs_list = ["Teaching & Learning", ...];
 
 ## 🐛 Known Limitations
 
-- No database backend (uses JSON file)
-- Simple authentication (hardcoded credentials)
+- No database backend (uses JSON files, a prototype choice)
+- No real authentication (hardcoded credentials checked in the browser)
+- Admin panel is only reachable from `localhost`
+- Sample data only
 - No user registration system
 - No email notifications
 - Limited to single JSON file (scalability)
@@ -243,7 +285,7 @@ $qs_list = ["Teaching & Learning", ...];
 
 ## 📝 License
 
-This is a university prototype project for educational purposes.
+This is a university course prototype for educational purposes. It is not affiliated with or endorsed by Eastern Mediterranean University as an official service.
 
 ---
 

@@ -414,7 +414,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
     <footer>
         <div class="container text-center">
             <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
-            <p class="small text-white mb-0">Software Engineering Project Prototype &copy; 2025</p>
+            <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data only, no real authentication</p>
         </div>
     </footer>
 
@@ -422,11 +422,11 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header" style="background-color: var(--emu-dark-blue); color: white;">
-                    <h5 class="modal-title" id="login-modal-title"><i class="fas fa-user-shield me-2"></i>Staff Login</h5>
+                    <h5 class="modal-title" id="login-modal-title"><i class="fas fa-user-shield me-2"></i>Demo Login</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <p class="text-muted small mb-3" id="login-desc">Please enter your institutional credentials.</p>
+                    <p class="text-muted small mb-3" id="login-desc">Demo login for this course prototype (admin/admin, user/user). This is not real authentication.</p>
                     <div class="mb-3">
                         <label for="username" class="form-label fw-bold small" id="username-label">Username</label>
                         <div class="input-group">
@@ -504,8 +504,8 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                 resetBtn: 'Reset All',
                 allEventsTitle: 'All Events',
                 noResults: 'No events found matching your search or filters.',
-                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Staff Login',
-                loginDesc: 'Please enter your institutional credentials.',
+                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Demo Login',
+                loginDesc: 'Demo login for this course prototype (admin/admin, user/user). This is not real authentication.',
                 usernameLabel: 'Username',
                 passwordLabel: 'Password',
                 loginError: 'Invalid username or password.',
@@ -533,8 +533,8 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                 resetBtn: 'Tümünü Sıfırla',
                 allEventsTitle: 'Tüm Etkinlikler',
                 noResults: 'Arama veya filtrelerle eşleşen etkinlik bulunamadı.',
-                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Personel Girişi',
-                loginDesc: 'Lütfen kurum hesabınızla giriş yapın.',
+                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Demo Giriş',
+                loginDesc: 'Ders prototipi için demo giriş (admin/admin, user/user). Gerçek kimlik doğrulama değildir.',
                 usernameLabel: 'Kullanıcı Adı',
                 passwordLabel: 'Şifre',
                 loginError: 'Geçersiz kullanıcı adı veya şifre.',

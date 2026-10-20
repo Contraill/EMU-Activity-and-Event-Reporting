@@ -1,6 +1,13 @@
 <?php
 session_start();
 
+// Prototype has no server-side auth, so the admin panel only answers local requests.
+// shortcut: REMOTE_ADDR check only, behind a reverse proxy every request looks local; add real auth before any deployment.
+if (!in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
+    http_response_code(403);
+    exit('Admin panel is only available on localhost in this prototype.');
+}
+
 /**
  * EMU Activity & Event Reporting Portal
  * Admin Dashboard v2.0
@@ -730,7 +737,7 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
 <footer>
     <div class="container text-center">
         <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
-        <p class="small text-white mb-0">Software Engineering Project Prototype &copy; 2025</p>
+        <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data only, no real authentication</p>
     </div>
 </footer>
 

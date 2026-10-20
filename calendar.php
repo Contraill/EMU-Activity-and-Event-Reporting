@@ -298,7 +298,7 @@ if (file_exists($json_file)) {
     <footer>
         <div class="container text-center">
             <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
-            <p class="small text-white mb-0">Software Engineering Project Prototype &copy; 2025</p>
+            <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data only, no real authentication</p>
         </div>
     </footer>
 
