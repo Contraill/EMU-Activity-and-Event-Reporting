@@ -1,5 +1,6 @@
 <?php
-session_start();
+require 'auth.php';
+require_role(['user', 'admin']);
 
 /**
  * EMU Activity & Event Reporting Portal
@@ -243,7 +244,7 @@ $browse_events = array_filter($events, function($e) use ($now_time) {
                 <li class="nav-item"><a class="nav-link" id="nav-reports" href="#my-reports"><i class="fas fa-file-pdf me-1"></i> My Reports</a></li>
 
                 <li class="nav-item">
-                    <a id="nav-logout" href="index.php" class="btn btn-profile btn-sm px-4 rounded-pill">
+                    <a id="nav-logout" href="login.php?logout=1" class="btn btn-profile btn-sm px-4 rounded-pill">
                         <i class="fas fa-sign-out-alt me-2"></i>Logout (<?php echo h($user_role); ?>)
                     </a>
                 </li>
@@ -365,6 +366,7 @@ $browse_events = array_filter($events, function($e) use ($now_time) {
                                     
                                     <form method="POST" onsubmit="return confirm('Unregister from this event?');">
                                         <input type="hidden" name="action" value="toggle_register">
+                                        <?php echo csrf_field(); ?>
                                         <input type="hidden" name="id" value="<?php echo (int)$re['id']; ?>">
                                         <button class="btn btn-outline-secondary btn-sm" title="Unregister">
                                             <i class="fas fa-times"></i>
@@ -394,6 +396,7 @@ $browse_events = array_filter($events, function($e) use ($now_time) {
                                 </div>
                                 <form method="POST">
                                     <input type="hidden" name="action" value="toggle_save">
+                                    <?php echo csrf_field(); ?>
                                     <input type="hidden" name="id" value="<?php echo (int)$se['id']; ?>">
                                     <button class="btn btn-outline-secondary btn-sm">Unsave</button>
                                 </form>
@@ -410,7 +413,7 @@ $browse_events = array_filter($events, function($e) use ($now_time) {
 <footer>
     <div class="container text-center">
         <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
-        <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data only, no real authentication</p>
+        <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data and public demo accounts only</p>
     </div>
 </footer>
 
@@ -418,7 +421,7 @@ $browse_events = array_filter($events, function($e) use ($now_time) {
 
 <script>
     // --- 1. DATA TRANSFER FROM PHP TO JS ---
-    let allEventsData = <?php echo json_encode($events); ?>;
+    let allEventsData = <?php echo json_encode($events, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
     let currentLang = localStorage.getItem('lang') || 'en';
     const langToggleBtn = document.getElementById('lang-toggle');
     const dataCache = {};
@@ -543,6 +546,7 @@ $browse_events = array_filter($events, function($e) use ($now_time) {
                                 <div class="d-flex gap-2">
                                     <form method="POST" class="w-50">
                                         <input type="hidden" name="action" value="toggle_save">
+                                        <?php echo csrf_field(); ?>
                                         <input type="hidden" name="id" value="${event.id}">
                                         <button class="btn btn-sm w-100 ${isSaved ? 'btn-secondary' : 'btn-outline-secondary'}">
                                             <i class="fas fa-bookmark me-1"></i><span class="btn-save-text">${isSaved ? dict.saved : dict.save}</span>
@@ -551,6 +555,7 @@ $browse_events = array_filter($events, function($e) use ($now_time) {
 
                                     <form method="POST" class="w-50">
                                         <input type="hidden" name="action" value="toggle_register">
+                                        <?php echo csrf_field(); ?>
                                         <input type="hidden" name="id" value="${event.id}">
                                         <button class="btn btn-sm w-100 ${isRegistered ? 'btn-primary' : 'btn-outline-primary'}">
                                             <i class="fas fa-calendar-check me-1"></i><span class="btn-register-text">${isRegistered ? dict.registered : dict.register}</span>

@@ -5,6 +5,8 @@
  * * Features: Login Modal, Role-Based Redirects (Admin/User), PDF Generation.
  */
 
+require 'auth.php';
+
 // --- DATA SOURCE CONFIGURATION ---
 $json_file = 'events.json';
 $events = [];
@@ -268,7 +270,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                     <li class="nav-item"><a class="nav-link" id="nav-events" href="#all-events-section"><i class="fas fa-list me-1"></i> Events</a></li>
                     <li class="nav-item">
                         <a id="nav-login" href="#" data-bs-toggle="modal" data-bs-target="#loginModal" class="btn btn-login btn-sm px-4 rounded-pill">
-                            <i class="fas fa-lock me-2"></i>Staff Login
+                            <i class="fas fa-lock me-2"></i>Demo Login
                         </a>
                     </li>
                     <li class="nav-item">
@@ -414,7 +416,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
     <footer>
         <div class="container text-center">
             <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
-            <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data only, no real authentication</p>
+            <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data and public demo accounts only</p>
         </div>
     </footer>
 
@@ -425,20 +427,21 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                     <h5 class="modal-title" id="login-modal-title"><i class="fas fa-user-shield me-2"></i>Demo Login</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <p class="text-muted small mb-3" id="login-desc">Demo login for this course prototype (admin/admin, user/user). This is not real authentication.</p>
+                <form class="modal-body p-4" method="POST" action="login.php">
+                    <?php echo csrf_field(); ?>
+                    <p class="text-muted small mb-3" id="login-desc">Demo login for this course prototype (admin/admin, user/user). Credentials are checked on the server, but they are public demo accounts.</p>
                     <div class="mb-3">
                         <label for="username" class="form-label fw-bold small" id="username-label">Username</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <input type="text" class="form-control" id="username">
+                            <input type="text" class="form-control" id="username" name="username" autocomplete="username" required>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label fw-bold small" id="password-label">Password</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <input type="password" class="form-control" id="password" placeholder="******">
+                            <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" placeholder="******" required>
                         </div>
                     </div>
                     
@@ -446,10 +449,10 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                         <i class="fas fa-exclamation-circle me-1"></i> <span id="login-error-text">Invalid username or password.</span>
                     </div>
 
-                    <button type="button" onclick="performLogin()" class="btn btn-primary w-100" style="background-color: var(--emu-orange); border:none;" id="login-btn">
+                    <button type="submit" class="btn btn-primary w-100" style="background-color: var(--emu-orange); border:none;" id="login-btn">
                         Login
                     </button>
-                </div>
+                </form>
             </div>
         </div>
     </div>
@@ -458,7 +461,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
     
     <script>
         // --- 1. DATA TRANSFER FROM PHP TO JS ---
-        let allEventsData = <?php echo json_encode($events); ?>;
+        let allEventsData = <?php echo json_encode($events, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
         let totalEventCount = allEventsData.length; // Store total count at page load
         const dataCache = { en: allEventsData, tr: null };
 
@@ -490,7 +493,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
             en: {
                 navCalendar: '<i class="far fa-calendar-alt me-1"></i> Calendar',
                 navEvents: '<i class="fas fa-list me-1"></i> Events',
-                navLogin: '<i class="fas fa-lock me-2"></i>Staff Login',
+                navLogin: '<i class="fas fa-lock me-2"></i>Demo Login',
                 heroTitle: 'Activity & Event Reporting',
                 heroSubtitle: 'Track university achievements, SDG contributions, and accreditation standards.',
                 upcomingHeading: 'Upcoming Calendar',
@@ -505,7 +508,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                 allEventsTitle: 'All Events',
                 noResults: 'No events found matching your search or filters.',
                 loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Demo Login',
-                loginDesc: 'Demo login for this course prototype (admin/admin, user/user). This is not real authentication.',
+                loginDesc: 'Demo login for this course prototype (admin/admin, user/user). Credentials are checked on the server, but they are public demo accounts.',
                 usernameLabel: 'Username',
                 passwordLabel: 'Password',
                 loginError: 'Invalid username or password.',
@@ -519,7 +522,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
             tr: {
                 navCalendar: '<i class="far fa-calendar-alt me-1"></i> Takvim',
                 navEvents: '<i class="fas fa-list me-1"></i> Etkinlikler',
-                navLogin: '<i class="fas fa-lock me-2"></i>Personel Girişi',
+                navLogin: '<i class="fas fa-lock me-2"></i>Demo Giriş',
                 heroTitle: 'Etkinlik ve Faaliyet Raporlama',
                 heroSubtitle: 'Üniversite başarılarını, Sürdürülebilirlik hedeflerini ve akreditasyon standartlarını takip edin.',
                 upcomingHeading: 'Yaklaşan Takvim',
@@ -534,7 +537,7 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
                 allEventsTitle: 'Tüm Etkinlikler',
                 noResults: 'Arama veya filtrelerle eşleşen etkinlik bulunamadı.',
                 loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Demo Giriş',
-                loginDesc: 'Ders prototipi için demo giriş (admin/admin, user/user). Gerçek kimlik doğrulama değildir.',
+                loginDesc: 'Ders prototipi için demo giriş (admin/admin, user/user). Bilgiler sunucuda kontrol edilir ama herkese açık demo hesaplardır.',
                 usernameLabel: 'Kullanıcı Adı',
                 passwordLabel: 'Şifre',
                 loginError: 'Geçersiz kullanıcı adı veya şifre.',
@@ -1071,29 +1074,13 @@ $qs_criteria = ["Teaching & Learning", "Employability", "Research Quality", "Int
             doc.save(`EMU_Report_${event.date}_${event.id}.pdf`);
         }
 
-        // --- 7. LOGIN LOGIC (NEW) ---
-        function performLogin() {
-            const u = document.getElementById('username').value.trim();
-            const p = document.getElementById('password').value.trim();
-            const errorBox = document.getElementById('login-error');
-
-            if (u === 'admin' && p === 'admin') {
-                window.location.href = 'admin_dashboard.php';
-            } else if (u === 'user' && p === 'user') {
-                window.location.href = 'user_dashboard.php';
-            } else {
-                errorBox.style.display = 'block';
-                // Shake animation effect for invalid login
-                const modalContent = document.querySelector('.modal-content');
-                modalContent.classList.add('border-danger');
-                setTimeout(() => { modalContent.classList.remove('border-danger'); }, 500);
-            }
+        // --- 7. LOGIN MODAL ---
+        // login.php sends visitors back with ?login=failed or ?login=required; reopen the modal for them.
+        const loginState = new URLSearchParams(window.location.search).get('login');
+        if (loginState) {
+            if (loginState === 'failed') document.getElementById('login-error').style.display = 'block';
+            new bootstrap.Modal(document.getElementById('loginModal')).show();
         }
-        
-        // Allow pressing "Enter" inside inputs to trigger login
-        document.getElementById('password').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') performLogin();
-        });
     </script>
 </body>
 </html>

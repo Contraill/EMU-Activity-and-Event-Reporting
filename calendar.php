@@ -6,6 +6,8 @@
  * * @version 2.0.0
  */
 
+require 'auth.php';
+
 // --- DATA LOADING ---
 $json_file = 'events.json';
 $events = [];
@@ -238,7 +240,7 @@ if (file_exists($json_file)) {
                     <li class="nav-item"><a class="nav-link" id="nav-home" href="index.php"> <i class="fas fa-home me-1"></i> Home</a></li>
                     <li class="nav-item">
                         <a id="nav-login" href="#" data-bs-toggle="modal" data-bs-target="#loginModal" class="btn btn-login btn-sm px-4 rounded-pill">
-                            <i class="fas fa-lock me-2"></i>Staff Login
+                            <i class="fas fa-lock me-2"></i>Demo Login
                         </a>
                     </li>
                     <li class="nav-item">
@@ -298,7 +300,7 @@ if (file_exists($json_file)) {
     <footer>
         <div class="container text-center">
             <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
-            <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data only, no real authentication</p>
+            <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data and public demo accounts only</p>
         </div>
     </footer>
 
@@ -306,23 +308,24 @@ if (file_exists($json_file)) {
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header" style="background-color: var(--emu-dark-blue); color: white;">
-                    <h5 class="modal-title" id="login-modal-title"><i class="fas fa-user-shield me-2"></i>Staff Login</h5>
+                    <h5 class="modal-title" id="login-modal-title"><i class="fas fa-user-shield me-2"></i>Demo Login</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <p class="text-muted small mb-3" id="login-desc">Please enter your institutional credentials.</p>
+                <form class="modal-body p-4" method="POST" action="login.php">
+                    <?php echo csrf_field(); ?>
+                    <p class="text-muted small mb-3" id="login-desc">Demo login for this course prototype (admin/admin, user/user). Credentials are checked on the server, but they are public demo accounts.</p>
                     <div class="mb-3">
                         <label for="username" class="form-label fw-bold small" id="username-label">Username</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <input type="text" class="form-control" id="username">
+                            <input type="text" class="form-control" id="username" name="username" autocomplete="username" required>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label fw-bold small" id="password-label">Password</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <input type="password" class="form-control" id="password" placeholder="******">
+                            <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" placeholder="******" required>
                         </div>
                     </div>
                     
@@ -330,10 +333,10 @@ if (file_exists($json_file)) {
                         <i class="fas fa-exclamation-circle me-1"></i> <span id="login-error-text">Invalid username or password.</span>
                     </div>
 
-                    <button type="button" onclick="performLogin()" class="btn btn-primary w-100" style="background-color: var(--emu-orange); border:none;" id="login-btn">
+                    <button type="submit" class="btn btn-primary w-100" style="background-color: var(--emu-orange); border:none;" id="login-btn">
                         Login
                     </button>
-                </div>
+                </form>
             </div>
         </div>
     </div>
@@ -342,7 +345,7 @@ if (file_exists($json_file)) {
 
     <script>
         // 1. Data + Localization Setup
-        let eventsData = <?php echo json_encode($events); ?>;
+        let eventsData = <?php echo json_encode($events, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
         let dataCache = { en: eventsData, tr: null };
         let selectedDate = null;
         const today = new Date();
@@ -360,7 +363,7 @@ if (file_exists($json_file)) {
         const translations = {
             en: {
                 navHome: '<i class="fas fa-home me-1"></i> Home',
-                navLogin: '<i class="fas fa-lock me-2"></i>Staff Login',
+                navLogin: '<i class="fas fa-lock me-2"></i>Demo Login',
                 heroTitle: 'Event Calendar',
                 heroSubtitle: 'View upcoming university activities, workshops, and deadlines.',
                 gotoToday: 'Go to Today',
@@ -370,8 +373,8 @@ if (file_exists($json_file)) {
                 noEventsDay: 'No events on this day.',
                 todayBadge: 'TODAY',
                 endedBadge: 'ENDED',
-                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Staff Login',
-                loginDesc: 'Please enter your institutional credentials.',
+                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Demo Login',
+                loginDesc: 'Demo login for this course prototype (admin/admin, user/user). Credentials are checked on the server, but they are public demo accounts.',
                 usernameLabel: 'Username',
                 passwordLabel: 'Password',
                 loginError: 'Invalid username or password.',
@@ -379,7 +382,7 @@ if (file_exists($json_file)) {
             },
             tr: {
                 navHome: '<i class="fas fa-home me-1"></i> Ana Sayfa',
-                navLogin: '<i class="fas fa-lock me-2"></i>Personel Girişi',
+                navLogin: '<i class="fas fa-lock me-2"></i>Demo Giriş',
                 heroTitle: 'Etkinlik Takvimi',
                 heroSubtitle: 'Yaklaşan üniversite etkinliklerini, atölyeleri ve son tarihleri görüntüleyin.',
                 gotoToday: 'Bugüne Git',
@@ -389,8 +392,8 @@ if (file_exists($json_file)) {
                 noEventsDay: 'Bu günde etkinlik yok.',
                 todayBadge: 'BUGÜN',
                 endedBadge: 'BİTTİ',
-                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Personel Girişi',
-                loginDesc: 'Lütfen kurum hesabınızla giriş yapın.',
+                loginModalTitle: '<i class="fas fa-user-shield me-2"></i>Demo Giriş',
+                loginDesc: 'Ders prototipi için demo giriş (admin/admin, user/user). Bilgiler sunucuda kontrol edilir ama herkese açık demo hesaplardır.',
                 usernameLabel: 'Kullanıcı Adı',
                 passwordLabel: 'Şifre',
                 loginError: 'Geçersiz kullanıcı adı veya şifre.',
@@ -617,27 +620,6 @@ if (file_exists($json_file)) {
         langToggleBtn.addEventListener('click', () => {
             const nextLang = currentLang === 'en' ? 'tr' : 'en';
             setLanguage(nextLang);
-        });
-
-        // --- Login Logic ---
-        function performLogin() {
-            const u = document.getElementById('username').value.trim();
-            const p = document.getElementById('password').value.trim();
-            const errorBox = document.getElementById('login-error');
-
-            if (u === 'admin' && p === 'admin') {
-                window.location.href = 'admin_dashboard.php';
-            } else if (u === 'user' && p === 'user') {
-                window.location.href = 'user_dashboard.php';
-            } else {
-                errorBox.style.display = 'block';
-                const modalContent = document.querySelector('.modal-content');
-                modalContent.classList.add('border-danger');
-                setTimeout(() => { modalContent.classList.remove('border-danger'); }, 500);
-            }
-        }
-        document.getElementById('password').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') performLogin();
         });
 
         // --- Dark Mode Logic ---

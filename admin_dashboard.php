@@ -1,12 +1,13 @@
 <?php
-session_start();
-
-// Prototype has no server-side auth, so the admin panel only answers local requests.
-// shortcut: REMOTE_ADDR check only, behind a reverse proxy every request looks local; add real auth before any deployment.
+// The demo admin password is public, so the admin panel also only answers local requests.
+// shortcut: REMOTE_ADDR check only, behind a reverse proxy every request looks local; use real accounts before any deployment.
 if (!in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
     http_response_code(403);
     exit('Admin panel is only available on localhost in this prototype.');
 }
+
+require 'auth.php';
+require_role(['admin']);
 
 /**
  * EMU Activity & Event Reporting Portal
@@ -69,7 +70,7 @@ function h($s) {
 function save_events_to_file($events_data) {
     global $json_file;
     // JSON_PRETTY_PRINT for readability, JSON_UNESCAPED_UNICODE for Turkish chars
-    file_put_contents($json_file, json_encode($events_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    file_put_contents($json_file, json_encode($events_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 
 /* ---------- 3) ACTIONS: EXPORT CSV ---------- */
@@ -109,15 +110,27 @@ $message = '';
 $save_success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Event fields are rendered with innerHTML on the public pages, so no markup is accepted.
+    array_walk_recursive($_POST, function (&$v) { $v = trim(strip_tags($v)); });
     $action = $_POST['action'] ?? '';
 
-    // Helper to handle multi-select arrays -> string
-    $process_multiselect = function($post_key) {
+    // Helper to handle multi-select arrays -> string, keeping only values from the known lists
+    $allowed_tags = ['sdg' => $sdg_list, 'the_cat' => $the_list, 'qs_cat' => $qs_list];
+    $process_multiselect = function($post_key) use ($allowed_tags) {
         $data = $_POST[$post_key] ?? [];
-        if (is_array($data)) {
-            return implode(', ', $data); // Convert ["SDG 1", "SDG 2"] to "SDG 1, SDG 2"
-        }
-        return trim($data);
+        if (!is_array($data)) return '';
+        return implode(', ', array_intersect($data, $allowed_tags[$post_key])); // ["SDG 1", "SDG 2"] -> "SDG 1, SDG 2"
+    };
+
+    // Returns an error message, or '' when the submitted event is valid
+    $validate_event = function() {
+        if (($_POST['title'] ?? '') === '') return 'Error: Title is required.';
+        $d = DateTime::createFromFormat('Y-m-d', $_POST['date'] ?? '');
+        if (!$d || $d->format('Y-m-d') !== $_POST['date']) return 'Error: Date must be a valid YYYY-MM-DD date.';
+        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $_POST['time'] ?? '')) return 'Error: Time must be HH:MM.';
+        $img = $_POST['image'] ?? '';
+        if ($img !== '' && (!filter_var($img, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $img))) return 'Error: Image must be an http(s) URL.';
+        return '';
     };
 
     // ADD EVENT
@@ -144,9 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'contact_tr' => trim($_POST['contact'] ?? 'Admin')
         ];
 
-        if ($new['title'] === '' || $new['date'] === '') {
-            $message = 'Error: Title and Date are required.';
-        } else {
+        $message = $validate_event();
+        if ($message === '') {
             if ($new['image'] === '') $new['image'] = 'https://via.placeholder.com/600x400?text=New+Event';
             $events[] = $new;
             save_events_to_file($events); // Write EN to events.json
@@ -162,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $new_tr['contact'] = $new['contact_tr'] ?? $new['contact'];
             unset($new_tr['title_tr'], $new_tr['description_tr'], $new_tr['organizer_tr'], $new_tr['location_tr'], $new_tr['contact_tr']);
             $events_tr[] = $new_tr;
-            file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
             
             $save_success = true;
             redirect_home();
@@ -184,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $tr_idx = find_event_index_by_id($events_tr, $id);
                 if ($tr_idx !== -1) {
                     array_splice($events_tr, $tr_idx, 1);
-                    file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                    file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
                 }
             }
             
@@ -197,8 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_event') {
         $id = (int)($_POST['id'] ?? 0);
         $idx = find_event_index_by_id($events, $id);
+        $message = $validate_event();
 
-        if ($idx !== -1) {
+        if ($idx !== -1 && $message === '') {
             $events[$idx]['title'] = trim($_POST['title']);
             $events[$idx]['title_tr'] = trim($_POST['title_tr']);
             $events[$idx]['date'] = trim($_POST['date']);
@@ -236,12 +249,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $events_tr[$tr_idx]['location'] = $events[$idx]['location_tr'] ?? $events[$idx]['location'];
                 $events_tr[$tr_idx]['contact'] = $events[$idx]['contact_tr'] ?? $events[$idx]['contact'];
                 unset($events_tr[$tr_idx]['title_tr'], $events_tr[$tr_idx]['description_tr'], $events_tr[$tr_idx]['organizer_tr'], $events_tr[$tr_idx]['location_tr'], $events_tr[$tr_idx]['contact_tr']);
-                file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                file_put_contents($events_tr_file, json_encode($events_tr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
             }
             
             $save_success = true;
         }
-        redirect_home();
+        if ($message === '') redirect_home();
     }
 }
 
@@ -458,7 +471,7 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
                 <li class="nav-item"><a class="nav-link" id="nav-manage" href="#manage"><i class="fas fa-screwdriver-wrench me-1"></i> Manage</a></li>
                 <li class="nav-item"><a class="nav-link" id="nav-reports" href="#reports"><i class="fas fa-file-pdf me-1"></i> Reports</a></li>
                 <li class="nav-item">
-                    <a id="nav-logout" href="index.php" class="btn btn-profile btn-sm px-4 rounded-pill">
+                    <a id="nav-logout" href="login.php?logout=1" class="btn btn-profile btn-sm px-4 rounded-pill">
                         <i class="fas fa-sign-out-alt me-2"></i>Logout (Admin)
                     </a>
                 </li>
@@ -572,6 +585,7 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
                     </h6>
 
                     <form method="POST">
+                        <?php echo csrf_field(); ?>
                         <input type="hidden" name="action" value="<?php echo $edit_event ? 'update_event' : 'add_event'; ?>">
                         <?php if ($edit_event): ?>
                             <input type="hidden" name="id" value="<?php echo (int)$edit_event['id']; ?>">
@@ -717,6 +731,7 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <form method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this event?');">
+                                                <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="action" value="delete_event">
                                                 <input type="hidden" name="id" value="<?php echo (int)$e['id']; ?>">
                                                 <button class="btn btn-outline-danger btn-sm"><i class="fas fa-trash"></i></button>
@@ -737,14 +752,14 @@ usort($sorted, fn($a, $b) => strcmp($a['date'] . $a['time'], $b['date'] . $b['ti
 <footer>
     <div class="container text-center">
         <p class="mb-1 text-white fw-bold">Eastern Mediterranean University</p>
-        <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data only, no real authentication</p>
+        <p class="small text-white mb-0">Software Engineering Course Prototype &copy; 2025 &middot; Not an official EMU service &middot; Sample data and public demo accounts only</p>
     </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    const allEventsData = <?php echo json_encode($sorted); ?>;
+    const allEventsData = <?php echo json_encode($sorted, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
     let currentLang = localStorage.getItem('lang') || 'en';
     const langToggleBtn = document.getElementById('lang-toggle');
 
